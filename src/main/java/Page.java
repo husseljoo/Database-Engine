@@ -1,18 +1,13 @@
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
 import java.io.Serializable;
-import java.net.URL;
-import java.util.Objects;
 import java.util.Properties;
 import java.util.Vector;
 
 public class Page implements Serializable 
 {
 
-	int max=this.pageEntries();
+	transient int max=this.pageEntries();
 	Vector<Tuple> tuples=new Vector<Tuple>();
-	Page nextPage;
+	Page nextPage=null;
 	
 	public Page(){}
 
@@ -23,6 +18,9 @@ public class Page implements Serializable
 		tuples.add(l);
 	}
 	
+	public void addTuple(Tuple t) {
+		tuples.add(t);
+	}
 	
 	
 //READ DBapp.config file and extract number of entries per page to set the instance variable
@@ -48,11 +46,35 @@ public class Page implements Serializable
 	
 	public static void main(String[] args) {
 		Page p=new Page();
-//		int n=p.pageEntries();
-		System.out.println(p.max);
+		
+		Tuple t0=new Tuple();
+		String s0="1,Abo-Hedar,1,2,3,Food,Heliopolis";
+		t0.addRecord(s0);
+		
+		Tuple t1=new Tuple();
+		String s1="1,Gad,1,2,3,Food,Nasr City";
+		t1.addRecord(s1);
+
+		Tuple t2=new Tuple();
+		String s2="1,Arabiata,1,2,3,Food,Dokki";
+		t2.addRecord(s2);
+
+		Tuple t3=new Tuple();
+		String s3="1,Waffilicious,1,2,3,Food,Sheraton";
+		t3.addRecord(s3);
+	
+		p.addTuple(t0);
+		p.addTuple(t1);
+		p.addTuple(t2);
+		p.addTuple(t3);
+	
+		System.out.println(p.tuples.toString());
+		Tuple tup=p.tuples.get(0);
+		System.out.println(tup.record.toString());
+		
 	}
 	
-	
+
 	
 	
 	

@@ -1,10 +1,12 @@
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.Iterator;
+import java.io.File;
 
 public class DBApp implements DBAppInterface{
 	FileWriter csvWriter;
@@ -61,8 +63,19 @@ public class DBApp implements DBAppInterface{
 			e.printStackTrace();
 		}
         /*********************************************************************************/
-        
-        
+        //Once we create a Table, we create a folder/directory with its name inside the tables folder
+        //it will contain all the pages of the table as well as a table_name.csv that contains info about
+        // its page files (.class or .ser) i.e key range of page,bit indicating whether its full or not etc.
+        try {
+
+            Path path =Paths.get("/home/husseljo/Desktop/DB2Project/src/main/resources/tables/"+str_TableName);
+            Files.createDirectories(path);    
+            
+          } catch (Exception e) {
+        	  e.printStackTrace();
+            System.err.println("Failed to create directory!" + e.getMessage());
+
+          }
         
         
         
@@ -72,24 +85,71 @@ public class DBApp implements DBAppInterface{
         
     }
 
-    public void createIndex(String
-    		str__TableName,
-    		String[] str__arrColName) throws DBAppException{}
-    public void insertIntoTable(String str__TableName,
+
+    public void insertIntoTable(String str_TableName,
     		Hashtable<String,Object> htbl_ColNameValue)
-    		throws DBAppException{}
-    public void updateTable(String str__TableName,
-    		String str__ClusteringKeyValue,
+    		throws DBAppException{
+    
+    	Path path =Paths.get("/home/husseljo/Desktop/DB2Project/src/main/resources/tables/"+str_TableName);
+    	if (!Files.exists(path))
+    		throw new DBAppException(); 
+    	else {
+    		
+    		String s=stringifyHT(str_TableName,htbl_ColNameValue);
+    		
+    	}    	
+    }
+
+    
+    //returns string (comma seperated)representing record to be inserted in Page 
+    // simply extracts values from HashTable 
+    //however we have to check whether HT input matches table (same column names and number of columns)
+    // if error exists return empty string and throw error in insertIntoTable method
+    //also we have to check the type of every value to check whether values are correct
+    // and maybe cast the Object to it (does not really matter as we return a string at the end of the day)
+    
+    //STILL NOT IMPLEMENTED!!
+    public static String stringifyHT(String str_TableName,Hashtable<String,Object> htbl_ColNameValue) {
+    	
+    	Enumeration<String> enumeration = htbl_ColNameValue.keys();
+    	String currLine = "";
+        while(enumeration.hasMoreElements()) 
+        {
+        	String columnName= enumeration.nextElement();
+        	Object columnValue=htbl_ColNameValue.get(columnName);
+        	
+        	
+        	currLine+= columnValue+",";
+        	 }
+
+    	
+    	return "";
+    }
+    
+    
+    
+    
+    public void updateTable(String str_TableName,
+    		String str_ClusteringKeyValue,
     		Hashtable<String,Object> htbl_ColNameValue
     		)
     		throws DBAppException{
     	
     }
-    public void deleteFromTable(String str__TableName,
+    public void deleteFromTable(String str_TableName,
     		Hashtable<String,Object> htbl_ColNameValue)
     		throws DBAppException{
     	
     }
+    
+    
+    
+    public void createIndex(String
+    		str_TableName,
+    		String[] str_arrColName) throws DBAppException{}
+    
+    
+    
     public Iterator selectFromTable(SQLTerm[] arr_SQLTerms,
     		String[] str_arrOperators)
     		throws DBAppException{
@@ -101,7 +161,7 @@ public class DBApp implements DBAppInterface{
     	
     	Hashtable<Integer,String> ht=new Hashtable<Integer,String>(); 
     	return (Iterator)ht;
-
+    	
     }
     
     public static void main(String[] args) throws IOException, DBAppException 
@@ -125,6 +185,8 @@ public class DBApp implements DBAppInterface{
     	htblColNameMax.put("gpa", "0.7");
     	
     	dbApp.createTable( strTableName, "id", htblColNameType,htblColNameMin,htblColNameMax);
+    	
+    	
     	
     }
     
