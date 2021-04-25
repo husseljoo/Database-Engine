@@ -188,7 +188,7 @@ public class DBApp implements DBAppInterface{
 							throw new DBAppException("Wrong input, please enter a value for " + columnName + " of type integer");
 						}
 						if (data > Integer.parseInt(min.get(i)) && data < Integer.parseInt(max.get(i)))
-							tuple.record.add(i, rawData.toString());
+								;//tuple.record.add(i, rawData.toString());
 						else {
 							throw new DBAppException("Wrong input, please enter a value for " + columnName + " between "
 									+ min.get(i) + " and " + max.get(i));
@@ -202,7 +202,7 @@ public class DBApp implements DBAppInterface{
 							throw new DBAppException();
 						}
 						if (data > Double.parseDouble(min.get(i)) && data < Double.parseDouble(max.get(i)))
-							tuple.record.add(i, rawData.toString());
+								;//tuple.record.add(i, rawData.toString());
 						else {
 							System.out.println("Wrong input, please enter a value for " + columnName + " between "
 									+ min.get(i) + " and " + max.get(i));
@@ -219,7 +219,7 @@ public class DBApp implements DBAppInterface{
 						}
 						try {
 							if (data.after(formatter.parse(min.get(i))) && data.before(formatter.parse(max.get(i))))
-								tuple.record.add(i, rawData.toString());
+									;//tuple.record.add(i, rawData.toString());
 							else {
 								throw new DBAppException("Wrong input, please enter a value between " + columnName + " between "
 										+ min.get(i) + " and " + max.get(i));
@@ -309,7 +309,7 @@ public class DBApp implements DBAppInterface{
     	Hashtable htbl_values = new Hashtable( );
     	htbl_values.put("id", 3);
     	htbl_values.put("name", "Samir");
-    	htbl_values.put("gpa", 3);
+    	htbl_values.put("gpa", 4);
     	
     	
     	dbApp.insertIntoTable("Student",htbl_values);
