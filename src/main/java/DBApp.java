@@ -100,6 +100,7 @@ public class DBApp implements DBAppInterface{
     			
     			//data is VALID: continue normal execution 
     			//stringify it and insert record
+    			System.out.println("Data is valid!");
     		}
     	}    	
     
@@ -118,7 +119,7 @@ public class DBApp implements DBAppInterface{
     	BufferedReader objReader = null;
 		String strCurrentLine;
 		try {
-			objReader = new BufferedReader(new FileReader("metadata.csv"));
+			objReader = new BufferedReader(new FileReader("/home/husseljo/Desktop/DB2Project/src/main/resources/metadata.csv"));
 			strCurrentLine = objReader.readLine();
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -135,6 +136,8 @@ public class DBApp implements DBAppInterface{
 		try {
 			for (int i = 0; (strCurrentLine = objReader.readLine()) != null; i++) {
 				arrOfStr = strCurrentLine.split(",");
+				for(int j=0;j<arrOfStr.length;j++) System.out.println( j+" :"+arrOfStr[j]);//DEBUGGER
+				
 				if (arrOfStr[0].equals(str_TableName)) {
 					positionOfTable = i;
 					found = true;
@@ -145,33 +148,47 @@ public class DBApp implements DBAppInterface{
 					dataTypes.add(arrOfStr[2]);
 					min.add(arrOfStr[5]);
 					max.add(arrOfStr[6]);
-					break;
 				}
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 		
+		
+//		for(int j=0;j<arrOfStr.length;j++) System.out.println( j+" :"+arrOfStr[j]);
+//		
+		System.out.println(fieldNames.size());
+//		System.out.println(dataTypes); 
+//		System.out.println(min);       
+//		System.out.println(max);       
+		
+		
+		
+		
+		
 		Enumeration<String> enumeration = htbl_ColNameValue.keys();
-		String rawData;
+		Object rawData;
 		boolean b=false;
+		boolean columnExists=false;
+		
 		
 		while (enumeration.hasMoreElements()) {
 			String columnName = enumeration.nextElement();
 			for (int i = 0; i < fieldNames.size(); i++) {
-				if (columnName.equals(fieldNames.get(i))) 
-					rawData = (String) htbl_ColNameValue.get(columnName);
-				else {
-					continue;}
+				if (columnName.equals(fieldNames.get(i))) {
+					rawData = htbl_ColNameValue.get(columnName); // (String) htbl_ColNameValue.get(columnName);
+					columnExists=true;}
+				else 
+					continue;
 				if (dataTypes.get(i).equals("java.lang.Integer")) {
 						int data;
 						try {
-							data = Integer.parseInt(rawData);
+							data =(Integer)rawData;
 						} catch (Exception e) {
 							throw new DBAppException("Wrong input, please enter a value for " + columnName + " of type integer");
 						}
 						if (data > Integer.parseInt(min.get(i)) && data < Integer.parseInt(max.get(i)))
-							tuple.record.add(i, rawData);
+							tuple.record.add(i, rawData.toString());
 						else {
 							throw new DBAppException("Wrong input, please enter a value for " + columnName + " between "
 									+ min.get(i) + " and " + max.get(i));
@@ -179,13 +196,13 @@ public class DBApp implements DBAppInterface{
 					} else if (dataTypes.get(i).equals("java.lang.Double")) {
 						double data;
 						try {
-							data = Double.parseDouble(rawData);
+							data = (Double)rawData;
 						} catch (Exception e) {
 							System.out.println("Wrong input, please enter a value for " + columnName + " of type double");
 							throw new DBAppException();
 						}
 						if (data > Double.parseDouble(min.get(i)) && data < Double.parseDouble(max.get(i)))
-							tuple.record.add(i, rawData);
+							tuple.record.add(i, rawData.toString());
 						else {
 							System.out.println("Wrong input, please enter a value for " + columnName + " between "
 									+ min.get(i) + " and " + max.get(i));
@@ -195,14 +212,14 @@ public class DBApp implements DBAppInterface{
 						Date data;
 						SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd");
 						try {
-							data = (Date)formatter.parse(rawData);
+							data = (Date)rawData;
 						} catch (Exception e) {
 							throw new DBAppException("Wrong input, please enter a value for " + columnName
 									+ " of type date in the format " + '"' + "yyy-MM-dd" + '"');
 						}
 						try {
 							if (data.after(formatter.parse(min.get(i))) && data.before(formatter.parse(max.get(i))))
-								tuple.record.add(i, rawData);
+								tuple.record.add(i, rawData.toString());
 							else {
 								throw new DBAppException("Wrong input, please enter a value between " + columnName + " between "
 										+ min.get(i) + " and " + max.get(i));
@@ -212,14 +229,18 @@ public class DBApp implements DBAppInterface{
 							throw new DBAppException();
 						}
 					} 
-					//COMPARING ALL TYPES EXCEPT DATE
-					else if (rawData.compareTo(min.get(i)) > 0 && rawData.compareTo(max.get(i)) < 0)
-						tuple.record.add(i, rawData);
-					else {
-						throw new DBAppException("Wrong input, please enter a value for " + columnName + " between "
-								+ min.get(i) + " and " + max.get(i));
-					}
+					//CHECKING BOUNDARY MIN &MAX STILL NOT IMPLEMENTED CORRECTLY
+//					else if ( rawData.valueOf(max.get(i)) >0 && ((String)rawData).compareTo(max.get(i)) < 0) //rawData.equals(min.get(i))
+//						tuple.record.add(i, rawData.toString());
+//					else {
+//						throw new DBAppException("Wrong input, please enter a value for " + columnName + " between "
+//								+ min.get(i) + " and " + max.get(i));
+//					}
 				}
+//				if(!columnExists)
+//					throw new DBAppException("Input Data invalid!"+columnName+" is not a field!");
+//				columnExists=false;
+			
 				}  
 			b=true;
 			return b;
@@ -285,6 +306,13 @@ public class DBApp implements DBAppInterface{
     	
     	dbApp.createTable( strTableName, "id", htblColNameType,htblColNameMin,htblColNameMax);
     	
+    	Hashtable htbl_values = new Hashtable( );
+    	htbl_values.put("id", 3);
+    	htbl_values.put("name", "Samir");
+    	htbl_values.put("gpa", 3);
+    	
+    	
+    	dbApp.insertIntoTable("Student",htbl_values);
     	
     	
     }
