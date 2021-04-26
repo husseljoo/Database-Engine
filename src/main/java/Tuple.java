@@ -8,7 +8,7 @@ import java.util.Vector;
 
 public class Tuple implements Serializable
 {
-	Vector<String> record=new Vector<String>();
+	Vector<Object> record=new Vector<Object>();
 	
 	public Tuple() {}
 

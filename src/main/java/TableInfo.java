@@ -1,38 +1,20 @@
-import java.util.ArrayList;
+import java.io.Serializable;
+import java.util.Vector;
 
-public class TableInfo 
+public class TableInfo implements Serializable
 {
-	public ArrayList<String> colOrder;
-	public ArrayList<String> maxInPages;
+	public Vector<String> colOrder;
+	public Vector<Object[]> pages;
 	public String clusteringKey;
 	
 	public TableInfo()
 	{
-		colOrder = new ArrayList<String>();
-		maxInPages = new ArrayList<String>();
+		colOrder = new Vector<String>();
+		pages = new Vector<Object[]>();
 		clusteringKey= "";
 	}
 
-	public void setColOrder(ArrayList<String> colOrder) {
+	public void setColOrder(Vector<String> colOrder) {
 		this.colOrder = colOrder;
 	}
-
-	public void setMaxInPages(ArrayList<String> maxInPages) {
-		this.maxInPages = maxInPages;
-	}
-
-	public void setClusteringKey(String clusteringKey) {
-		this.clusteringKey = clusteringKey;
-	}
-
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
 }

@@ -5,15 +5,15 @@ import java.util.Vector;
 public class Page implements Serializable 
 {
 
-	transient int max=this.pageEntries();
+	transient int N=this.pageEntries();
 	Vector<Tuple> tuples=new Vector<Tuple>();
-	Page nextPage=null;
 	
-	public Page(){}
+	public Page()
+	{}
 
 	public void insert(Tuple l)
 	{
-		if(tuples.size()>=max)
+		if(tuples.size()>=N)
 			return;
 		tuples.add(l);
 	}

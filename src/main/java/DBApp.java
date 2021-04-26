@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.Iterator;
+import java.util.Vector;
 public class DBApp implements DBAppInterface{
 	FileWriter csvWriter;
 	
@@ -43,7 +44,7 @@ public class DBApp implements DBAppInterface{
     	Enumeration<String> enumeration = htbl_ColNameType.keys();
     	String currLine = "";
     	String columnFormat=""; //FORMAT TO BE INSERTED IN CSV FILE OF TABLE FOR CONSISTENCY
-    	ArrayList<String> columnFormatArr=new ArrayList();
+    	Vector<String> columnFormatArr=new Vector();
     	while(enumeration.hasMoreElements()) 
         {
         	String columnName= enumeration.nextElement();
@@ -94,13 +95,8 @@ public class DBApp implements DBAppInterface{
         tableInfo.colOrder=columnFormatArr;
         tableInfo.clusteringKey=str_ClusteringKeyColumn;
         serialize(tableInfo,path+"/"+"tableInfo.class");
-        
-        
-              
     }
 
-    
-    
     public static void serialize(Object o,String path) {
 //    	String filename = "/home/husseljo/Desktop/DB2Project/src/main/resources/testTuple.ser"; //testTuple.class also works?
         
@@ -151,55 +147,39 @@ public class DBApp implements DBAppInterface{
 
     } 
     
-    
-    
-    
-    
-    
-
     public void insertIntoTable(String str_TableName,
     		Hashtable<String,Object> htbl_ColNameValue)
     		throws DBAppException{
     
     		boolean b=checkValidity(str_TableName,htbl_ColNameValue);
-    		if(b) {
-
+    		if(b) 
+    		{
     			String path="/home/husseljo/Desktop/DB2Project/src/main/resources/data/"+str_TableName+"/tableInfo.class";
-    			Tuple tuple=new Tuple();
     			TableInfo tableInfo=(TableInfo)deserialize(path);
+    			Tuple tuple=new Tuple();
+    			String clusteringKey=tableInfo.clusteringKey;
     			
     			for(int i=0;i<tableInfo.colOrder.size();i++) 
     			{
-    				tuple.record.add((String)htbl_ColNameValue.get(tableInfo.colOrder.get(i)));
-			   	}
-    			
-    			if(tableInfo.maxInPages.size()==0) 
+    				tuple.record.add(htbl_ColNameValue.get(tableInfo.colOrder.get(i)));
+    			}
+    			if(tableInfo.pages.size()==0)
     			{
     				Page page = new Page();
-    			
+    				page.tuples.add(tuple);
+    				Object[] pageInfo = {"page0",htbl_ColNameValue.get(clusteringKey)};
+    				tableInfo.pages.add(pageInfo);
     				
-//    				page.addTuple(tuple);
-//    				page.max = tuple;       //clustering key of tuple
-//    				tableInfo.maxInPages.add();	//clustering key of tuple	
+    				String pathOfPage = "/home/husseljo/Desktop/DB2Project/src/main/resources/data/"+str_TableName+"/page0.class";
+    				serialize(page,pathOfPage);
+    				serialize(tableInfo,path);
     			}
-    			
-    			
-    			//stringify Hashtbale
-    			
-    			
-    			
-    			
-    			//VECTOR index0=min Value, index0=max Value of Page
-    			//data is VALID: continue normal execution 
-    			//stringify it and insert record
-//    			System.out.println("Data is valid!");
+    			else
+    			{
+    				
+    			}
     		}
     	}    	
-    
-    
-    //checks validity of insertIntoTable arguments
-    //returns true if data is valid and throws DBAppException otherwise
-    
     
     public static boolean checkValidity(String str_TableName,Hashtable<String,Object> htbl_ColNameValue) throws DBAppException{
     	
@@ -337,10 +317,7 @@ public class DBApp implements DBAppInterface{
 			b=true;
 			return b;
     	}
-    
-    
-    
-    
+
     public void updateTable(String str_TableName,
     		String str_ClusteringKeyValue,
     		Hashtable<String,Object> htbl_ColNameValue
@@ -353,15 +330,9 @@ public class DBApp implements DBAppInterface{
     		throws DBAppException{
     	
     }
-    
-    
-    
     public void createIndex(String
     		str_TableName,
     		String[] str_arrColName) throws DBAppException{}
-    
-    
-    
     public Iterator selectFromTable(SQLTerm[] arr_SQLTerms,
     		String[] str_arrOperators)
     		throws DBAppException{
@@ -378,37 +349,38 @@ public class DBApp implements DBAppInterface{
     
     public static void main(String[] args) throws IOException, DBAppException 
     {
-    	String strTableName = "Student";
+  	String strTableName = "Student";
     	DBApp dbApp = new DBApp( );
     	dbApp.init();
-    	Hashtable htblColNameType = new Hashtable( );
-    	htblColNameType.put("id", "java.lang.Integer");
-    	htblColNameType.put("name", "java.lang.String");
-    	htblColNameType.put("gpa", "java.lang.double");
+//    	Hashtable htblColNameType = new Hashtable( );
+//    	htblColNameType.put("id", "java.lang.Integer");
+//    	htblColNameType.put("name", "java.lang.String");
+//    	htblColNameType.put("gpa", "java.lang.double");
+//    	
+//    	Hashtable htblColNameMin = new Hashtable( );
+//    	htblColNameMin.put("id", "0");
+//    	htblColNameMin.put("name", "A");
+//    	htblColNameMin.put("gpa", "6.0");
+//    	
+//    	Hashtable htblColNameMax = new Hashtable( );
+//    	htblColNameMax.put("id", "10000");
+//    	htblColNameMax.put("name", "ZZZZZZZZZZZ");
+//    	htblColNameMax.put("gpa", "0.7");
+//    	
+//    	dbApp.createTable( strTableName, "id", htblColNameType,htblColNameMin,htblColNameMax);
+//    	
+//    	Hashtable htbl_values = new Hashtable( );
+//    	htbl_values.put("id", 3);
+//    	htbl_values.put("name", "Samir");
+//    	htbl_values.put("gpa", 4);
     	
-    	Hashtable htblColNameMin = new Hashtable( );
-    	htblColNameMin.put("id", "0");
-    	htblColNameMin.put("name", "A");
-    	htblColNameMin.put("gpa", "6.0");
-    	
-    	Hashtable htblColNameMax = new Hashtable( );
-    	htblColNameMax.put("id", "10000");
-    	htblColNameMax.put("name", "ZZZZZZZZZZZ");
-    	htblColNameMax.put("gpa", "0.7");
-    	
-    	dbApp.createTable( strTableName, "id", htblColNameType,htblColNameMin,htblColNameMax);
-    	
-    	Hashtable htbl_values = new Hashtable( );
-    	htbl_values.put("id", 3);
-    	htbl_values.put("name", "Samir");
-    	htbl_values.put("gpa", 4);
-    	
-    	
-//    	dbApp.insertIntoTable("Student",htbl_values);
-//    	Object obj=dbApp.deserialize("/home/husseljo/Desktop/DB2Project/src/main/resources/data/Student/tableInfo.class");
-//    	System.out.println(obj);
-//    	ArrayList<String> arr=((ArrayList)obj).toString();
-    			
+//   	dbApp.insertIntoTable("Student",htbl_values);
+    	Object obj=dbApp.deserialize("/home/husseljo/Desktop/DB2Project/src/main/resources/data/Student/page0.class");
+    	System.out.println(obj);
+    	Page arr=(Page)obj;
+    	for (int i = 0; i < arr.tuples.size(); i++) {
+			System.out.println(arr.tuples.get(i).record.toString());
+		}
     	
     	
     }
