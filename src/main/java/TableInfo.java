@@ -6,6 +6,7 @@ public class TableInfo implements Serializable
 	public Vector<String> colOrder;
 	public Vector<Object[]> pages;
 	public String clusteringKey;
+	public int clusterKeyIndex;
 	
 	public TableInfo()
 	{

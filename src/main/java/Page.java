@@ -5,12 +5,16 @@ import java.util.Vector;
 public class Page implements Serializable 
 {
 
-	transient int N=this.pageEntries();
+	transient int N=this.pageEntries(); //move to tableInfo
 	Vector<Tuple> tuples=new Vector<Tuple>();
 	
 	public Page()
 	{}
 
+	public boolean isFull() {
+		return N==tuples.size();
+	}
+	
 	public void insert(Tuple l)
 	{
 		if(tuples.size()>=N)
