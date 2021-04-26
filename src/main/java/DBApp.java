@@ -1,18 +1,20 @@
 import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Date;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.Iterator;
-
 public class DBApp implements DBAppInterface{
 	FileWriter csvWriter;
 	
@@ -28,7 +30,6 @@ public class DBApp implements DBAppInterface{
 		{
 			e.printStackTrace();
 		}
-		
 	}
 
 
@@ -41,7 +42,9 @@ public class DBApp implements DBAppInterface{
  
     	Enumeration<String> enumeration = htbl_ColNameType.keys();
     	String currLine = "";
-        while(enumeration.hasMoreElements()) 
+    	String columnFormat=""; //FORMAT TO BE INSERTED IN CSV FILE OF TABLE FOR CONSISTENCY
+    	ArrayList<String> columnFormatArr=new ArrayList();
+    	while(enumeration.hasMoreElements()) 
         {
         	String columnName= enumeration.nextElement();
         	String columnType=htbl_ColNameType.get(columnName);
@@ -50,6 +53,7 @@ public class DBApp implements DBAppInterface{
         	String columnMax=htbl_ColNameMax.get(columnName);
         	
         	currLine+= str_TableName+","+columnName+","+columnType+","+clusterKey+","+"False,"+columnMin+","+columnMax+"\n";
+        	columnFormatArr.add(columnName);
         	try 
         	{
 				csvWriter.append(currLine);
@@ -71,25 +75,87 @@ public class DBApp implements DBAppInterface{
         //Once we create a Table, we create a folder/directory with its name inside the tables folder
         //it will contain all the pages of the table as well as a table_name.csv that contains info about
         // its page files (.class or .ser) i.e key range of page,bit indicating whether its full or not etc.
-        try {
+        Path path =Paths.get("/home/husseljo/Desktop/DB2Project/src/main/resources/data/"+str_TableName);
+        try 
+        {
 
-            Path path =Paths.get("/home/husseljo/Desktop/DB2Project/src/main/resources/data/"+str_TableName);
             Files.createDirectories(path);    
             
-          } catch (Exception e) {
+            
+         } catch (Exception e) {
         	  e.printStackTrace();
             System.err.println("Failed to create directory!" + e.getMessage());
 
           }
         
+        System.out.println(columnFormatArr.toString());
+        
+        TableInfo tableInfo=new TableInfo();
+        tableInfo.colOrder=columnFormatArr;
+        tableInfo.clusteringKey=str_ClusteringKeyColumn;
+        serialize(tableInfo,path+"/"+"tableInfo.class");
         
         
-        
-        
-        
-        
+              
     }
 
+    
+    
+    public static void serialize(Object o,String path) {
+//    	String filename = "/home/husseljo/Desktop/DB2Project/src/main/resources/testTuple.ser"; //testTuple.class also works?
+        
+        try
+	        {   
+        	//Saving of object in a file
+	        FileOutputStream file = new FileOutputStream(path);
+	        ObjectOutputStream out = new ObjectOutputStream(file);
+	        out.writeObject(o);
+	        out.close();
+	        file.close();
+	        System.out.println("Object has been serialized");
+
+	        }
+	          
+	    catch(IOException ex)
+	        {
+	        ex.printStackTrace();
+	        System.out.println("IOException is caught");
+	        }
+
+    }
+    
+    public static Object deserialize(String path) {
+    	Object o=null;
+    	try
+        {   
+            // Reading the object from a file
+    		FileInputStream file = new FileInputStream(path);
+            ObjectInputStream in = new ObjectInputStream(file);
+              
+            // Method for deserialization of object
+            try{o= in.readObject();}catch(Exception e) {}
+              
+            in.close();
+            file.close();
+            System.out.println("Object has been deserialized ");
+            
+        }
+          
+        catch(Exception e)
+        {
+        	e.printStackTrace();
+        	System.out.println("IOException is caught");
+        	
+        }
+    	return o;
+
+    } 
+    
+    
+    
+    
+    
+    
 
     public void insertIntoTable(String str_TableName,
     		Hashtable<String,Object> htbl_ColNameValue)
@@ -97,10 +163,36 @@ public class DBApp implements DBAppInterface{
     
     		boolean b=checkValidity(str_TableName,htbl_ColNameValue);
     		if(b) {
+
+    			String path="/home/husseljo/Desktop/DB2Project/src/main/resources/data/"+str_TableName+"/tableInfo.class";
+    			Tuple tuple=new Tuple();
+    			TableInfo tableInfo=(TableInfo)deserialize(path);
     			
+    			for(int i=0;i<tableInfo.colOrder.size();i++) 
+    			{
+    				tuple.record.add((String)htbl_ColNameValue.get(tableInfo.colOrder.get(i)));
+			   	}
+    			
+    			if(tableInfo.maxInPages.size()==0) 
+    			{
+    				Page page = new Page();
+    			
+    				
+//    				page.addTuple(tuple);
+//    				page.max = tuple;       //clustering key of tuple
+//    				tableInfo.maxInPages.add();	//clustering key of tuple	
+    			}
+    			
+    			
+    			//stringify Hashtbale
+    			
+    			
+    			
+    			
+    			//VECTOR index0=min Value, index0=max Value of Page
     			//data is VALID: continue normal execution 
     			//stringify it and insert record
-    			System.out.println("Data is valid!");
+//    			System.out.println("Data is valid!");
     		}
     	}    	
     
@@ -136,7 +228,7 @@ public class DBApp implements DBAppInterface{
 		try {
 			for (int i = 0; (strCurrentLine = objReader.readLine()) != null; i++) {
 				arrOfStr = strCurrentLine.split(",");
-				for(int j=0;j<arrOfStr.length;j++) System.out.println( j+" :"+arrOfStr[j]);//DEBUGGER
+//				for(int j=0;j<arrOfStr.length;j++) System.out.println( j+" :"+arrOfStr[j]);//DEBUGGER
 				
 				if (arrOfStr[0].equals(str_TableName)) {
 					positionOfTable = i;
@@ -157,7 +249,7 @@ public class DBApp implements DBAppInterface{
 		
 //		for(int j=0;j<arrOfStr.length;j++) System.out.println( j+" :"+arrOfStr[j]);
 //		
-		System.out.println(fieldNames.size());
+//		System.out.println(fieldNames.size());
 //		System.out.println(dataTypes); 
 //		System.out.println(min);       
 //		System.out.println(max);       
@@ -312,7 +404,11 @@ public class DBApp implements DBAppInterface{
     	htbl_values.put("gpa", 4);
     	
     	
-    	dbApp.insertIntoTable("Student",htbl_values);
+//    	dbApp.insertIntoTable("Student",htbl_values);
+//    	Object obj=dbApp.deserialize("/home/husseljo/Desktop/DB2Project/src/main/resources/data/Student/tableInfo.class");
+//    	System.out.println(obj);
+//    	ArrayList<String> arr=((ArrayList)obj).toString();
+    			
     	
     	
     }
