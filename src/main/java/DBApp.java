@@ -9,7 +9,8 @@ import java.io.ObjectOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.sql.Date;
+import java.util.Date;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -17,7 +18,6 @@ import java.util.Comparator;
 import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Vector;
 
 public class DBApp implements DBAppInterface{
@@ -28,7 +28,7 @@ public class DBApp implements DBAppInterface{
 		String currLine ="Table Name, Column Name, Column Type, ClusteringKey, Indexed, min, max\n";
 		try 
 		{
-			csvWriter = new FileWriter("/home/husseljo/Desktop/DB2Project/src/main/resources/metadata.csv");
+			csvWriter = new FileWriter("metadata.csv");
 			csvWriter.append(currLine);
 		} 
 		catch (IOException e) 
@@ -36,8 +36,6 @@ public class DBApp implements DBAppInterface{
 			e.printStackTrace();
 		}
 	}
-
-
     public void createTable(String str_TableName,
     		String str_ClusteringKeyColumn,
     		Hashtable<String,String> htbl_ColNameType,
@@ -81,16 +79,14 @@ public class DBApp implements DBAppInterface{
         {
 			e.printStackTrace();
 		}
-        /*********************************************************************************/
+        /***************************/
         //Once we create a Table, we create a folder/directory with its name inside the tables folder
         //it will contain all the pages of the table as well as a table_name.csv that contains info about
         // its page files (.class or .ser) i.e key range of page,bit indicating whether its full or not etc.
-        Path path =Paths.get("/home/husseljo/Desktop/DB2Project/src/main/resources/data/"+str_TableName);
+        Path path =Paths.get("/home/husseljo/Desktop/git/Database_Project/src/main/resources/data/"+str_TableName);
         try 
         {
-
-            Files.createDirectories(path);    
-            
+            Files.createDirectories(path);
             
          } catch (Exception e) {
         	  e.printStackTrace();
@@ -98,7 +94,6 @@ public class DBApp implements DBAppInterface{
 
           }
         
-        System.out.println(columnFormatArr.toString());
         
         TableInfo tableInfo=new TableInfo();
         tableInfo.colOrder=columnFormatArr;
@@ -106,7 +101,6 @@ public class DBApp implements DBAppInterface{
         tableInfo.clusterKeyIndex = pos;
         serialize(tableInfo,path+"/"+"tableInfo.class");
     }
-
     public static void serialize(Object o,String path) {
 //    	String filename = "/home/husseljo/Desktop/DB2Project/src/main/resources/testTuple.ser"; //testTuple.class also works?
         
@@ -118,8 +112,7 @@ public class DBApp implements DBAppInterface{
 	        out.writeObject(o);
 	        out.close();
 	        file.close();
-	        System.out.println("Object has been serialized");
-
+	        
 	        }
 	          
 	    catch(IOException ex)
@@ -129,7 +122,6 @@ public class DBApp implements DBAppInterface{
 	        }
 
     }
-    
     public static Object deserialize(String path) {
     	Object o=null;
     	try
@@ -143,7 +135,7 @@ public class DBApp implements DBAppInterface{
               
             in.close();
             file.close();
-            System.out.println("Object has been deserialized ");
+            
             
         }
           
@@ -156,7 +148,6 @@ public class DBApp implements DBAppInterface{
     	return o;
 
     } 
-    
     public void insertIntoTable(String str_TableName,
     		Hashtable<String,Object> htbl_ColNameValue)
     		throws DBAppException{
@@ -164,7 +155,7 @@ public class DBApp implements DBAppInterface{
     		boolean b=checkValidity(str_TableName,htbl_ColNameValue);
     		if(b) 
     		{
-    			String path="/home/husseljo/Desktop/DB2Project/src/main/resources/data/"+str_TableName+"/tableInfo.class";
+    			String path="/home/husseljo/Desktop/git/Database_Project/src/main/resources/data/"+str_TableName+"/tableInfo.class";
     			TableInfo tableInfo=(TableInfo)deserialize(path);
     			Tuple tuple=new Tuple();
     			String clusteringKey=tableInfo.clusteringKey;
@@ -177,11 +168,11 @@ public class DBApp implements DBAppInterface{
     			if(tableInfo.pages.size()==0)
     			{
     				Page page = new Page();
-    				page.tuples.add(tuple);
+    				page.insert(tuple);
     				Object[] pageInfo = {"page0",keyValue};
     				tableInfo.pages.add(pageInfo);
     				
-    				String pathOfPage = "/home/husseljo/Desktop/DB2Project/src/main/resources/data/"+str_TableName+"/page0.class";
+    				String pathOfPage = "/home/husseljo/Desktop/git/Database_Project/src/main/resources/data/"+str_TableName+"/page0.class";
     				serialize(page,pathOfPage);
     				serialize(tableInfo,path);
     			}
@@ -189,43 +180,169 @@ public class DBApp implements DBAppInterface{
     			{
     				int position=0;
     				String key =(String)keyValue.toString();
-    				for(int i=0;i<tableInfo.pages.size();i++) {
-    					if(key.compareTo((String) tableInfo.pages.get(i)[1].toString())<0){
-    						position=i;
-    					}
-    				String pathOfPage = "/home/husseljo/Desktop/DB2Project/src/main/resources/data/"+str_TableName+"/"+tableInfo.pages.get(position)[0].toString() +".class";
-    				Page page=(Page) deserialize(pathOfPage);
-    				if (!page.isFull()) 
+    				for(int i=0;i<tableInfo.pages.size();i++) 
     				{
-    					add(tuple, page,false,tableInfo.clusterKeyIndex);
+    					if((compareTo(key,tableInfo.pages.get(i)[1].toString())<0)||(i==tableInfo.pages.size()-1 && compareTo(key,tableInfo.pages.get(i)[1].toString())>0))
+    						{
+    						position=i;
+    						break;
+    						}
     				}
-    				else {
-    					
-    				}
-    					
+    				
+    				String pathOfPage = "/home/husseljo/Desktop/git/Database_Project/src/main/resources/data/"+str_TableName+"/"+tableInfo.pages.get(position)[0].toString() +".class";
+    				Page page=(Page) deserialize(pathOfPage);
+    					if (!page.isFull()) 
+    					{
+    						add(tuple, page,false,tableInfo.clusterKeyIndex,tableInfo,position);
+    						
+    						serialize(page,pathOfPage);
+    						serialize(tableInfo,path);
+    					}
+    					else 
+    					{
+    						createNewPage(tuple,page,tableInfo,tableInfo.pages.get(position)[0].toString(),keyValue,str_TableName,position);
+    						//change max in pages dynamically
+    						//add in tableinfo new tuple,page
+    						serialize(page,pathOfPage);
+    						serialize(tableInfo,path);
+    					}
     				}
     			}
     		}
-    	}    	
-    
-    
+    public static void createNewPage(Tuple tuple, Page page, TableInfo tableInfo, String pageName, Object keyValue, String str_TableName, int posOfCurrentPage)
+    {
+    	//no next page
+    	if(tableInfo.pages.lastElement()[0].toString().equals(pageName))
+    	{
+    		if(compareTo(tableInfo.pages.lastElement()[1].toString(),keyValue.toString())>0)
+    		{
+    			
+    			//last elem akbar, put in new pag
+    			Page newPage = new Page();
+    			newPage.insert(page.tuples.lastElement());
+    			Object[] pageInfo = {"page"+(tableInfo.pages.size()),tableInfo.pages.get(tableInfo.pages.size()-1)[1]};//esmaha maynfa3sh yeb2a .size, what if feeh 0,0_A el mfrood 1 msh 2
+    			tableInfo.pages.add(pageInfo);
+    			String pathOfPage = "/home/husseljo/Desktop/git/Database_Project/src/main/resources/data/"+str_TableName+"/"+pageInfo[0].toString() +".class";
+    			serialize(newPage,pathOfPage);
+    			
+    			
+    			add(tuple,page,true,tableInfo.clusterKeyIndex,tableInfo,posOfCurrentPage);
+    		}
+    		else
+    		{
+    			//tuple akbar
+    			Page newPage = new Page();
+    			newPage.insert(tuple);
+    			Object[] pageInfo = {"page"+(tableInfo.pages.size()),keyValue};
+    			tableInfo.pages.add(pageInfo);
+    			String pathOfPage = "/home/husseljo/Desktop/git/Database_Project/src/main/resources/data/"+str_TableName+"/"+pageInfo[0].toString() +".class";
+    			serialize(newPage,pathOfPage);
+    		}
+    			
+    	}
+    	else
+    	{
+    		int positionOfNextPage = posOfCurrentPage+1;
+    		String pathOfPage = "/home/husseljo/Desktop/git/Database_Project/src/main/resources/data/"+str_TableName+"/"+tableInfo.pages.get(positionOfNextPage)[0].toString() +".class";
+			Page nextPage=(Page) deserialize(pathOfPage);
+    		//next page is full
+    		if(nextPage.isFull())
+    		{
+    			Page overFlow = new Page();
+    			overFlow.insert(page.tuples.lastElement());
+    			String nameOfOverFlowPage = "";
+    			if(Character.isDigit(pageName.charAt(pageName.length()-1)))
+    			{
+    				nameOfOverFlowPage = pageName + "_A";
+    			}
+    			else
+    			{
+    				char letter= pageName.charAt(pageName.length()-1);
+    				nameOfOverFlowPage = pageName.replace(letter, letter++);
+    			}
+    			Object[] pageInfo = {nameOfOverFlowPage,tableInfo.pages.get(posOfCurrentPage)[1]};
+    			
+    			
+    			
+    			tableInfo.pages.insertElementAt(pageInfo,positionOfNextPage);
+    			String path = "/home/husseljo/Desktop/git/Database_Project/src/main/resources/data/"+str_TableName+"/"+nameOfOverFlowPage +".class";
+    			serialize(overFlow,path);
+    			add(tuple,page,true,tableInfo.clusterKeyIndex,tableInfo,posOfCurrentPage);
+    		}
+    		//next page is not full
+    		else
+    		{
+    			add(page.tuples.lastElement(),nextPage,false,tableInfo.clusterKeyIndex);
+    			add(tuple,page,true,tableInfo.clusterKeyIndex);
+    			tableInfo.pages.get(posOfCurrentPage)[1] = keyValue;
+    		}
+    		serialize(nextPage,pathOfPage);
+    	}
+    }
+    public static int compareTo(String s1, String s2)
+    {
+    	try
+    	{
+    		return Integer.compare(Integer.parseInt(s1), Integer.parseInt(s2));
+    	}
+    	catch(Exception e)
+    	{
+    		try
+    		{
+    			return Double.compare(Double.parseDouble(s1), Double.parseDouble(s2));
+    		}
+    		catch(Exception e1)
+    		{
+    			try
+    			{
+    			Date date1=new SimpleDateFormat("yyyy/MM/dd").parse(s1);
+    			Date date2=new SimpleDateFormat("yyyy/MM/dd").parse(s2);
+    			return date1.compareTo(date2);
+    			}
+    			catch(Exception e2)
+    			{
+    				return s1.compareTo(s2);
+    			}
+    		}
+    	}
+    }
+    public static void add(Tuple tuple,Page page, boolean isTruncate,int pos,TableInfo tableInfo,int posOfCurrentPage) 
+    {
+    	Comparator<Tuple> c = new Comparator<Tuple>() {
+            public int compareReal(Tuple t1,Tuple t2, int pos)
+            {
+                return compareTo(t1.record.get(pos).toString(),t2.record.get(pos).toString());
+            }
+
+			public int compare(Tuple t1, Tuple t2) {
+				return compareReal(t1,t2,pos);
+			}
+        };
+        if(isTruncate)
+   		 page.tuples.remove(page.tuples.size()-1);
+    	int position=Math.abs(-(Collections.binarySearch(page.tuples, tuple,c))-1);
+    	page.tuples.insertElementAt(tuple, position);
+    	tableInfo.pages.get(posOfCurrentPage)[1] = page.tuples.lastElement().record.get(pos);
+    	
+    }
     public static void add(Tuple tuple,Page page, boolean isTruncate,int pos) 
     {
     	Comparator<Tuple> c = new Comparator<Tuple>() {
             public int compareReal(Tuple t1,Tuple t2, int pos)
             {
-                return t1.record.get(pos).toString().compareTo(t2.record.get(pos).toString());
+                return compareTo(t1.record.get(pos).toString(),t2.record.get(pos).toString());
             }
 
-			@Override
 			public int compare(Tuple t1, Tuple t2) {
 				return compareReal(t1,t2,pos);
 			}
         };
+        if(isTruncate)
+   		 page.tuples.remove(page.tuples.size()-1);
     	int position=Math.abs(-(Collections.binarySearch(page.tuples, tuple,c))-1);
-    	System.out.println(position + "khaled");
+    	page.tuples.insertElementAt(tuple, position);
+    	
     }
-    
     public static boolean checkValidity(String str_TableName,Hashtable<String,Object> htbl_ColNameValue) throws DBAppException{
     	
     	Path path =Paths.get("/home/husseljo/Desktop/DB2Project/src/main/resources/data/"+str_TableName);
@@ -236,7 +353,7 @@ public class DBApp implements DBAppInterface{
     	BufferedReader objReader = null;
 		String strCurrentLine;
 		try {
-			objReader = new BufferedReader(new FileReader("/home/husseljo/Desktop/DB2Project/src/main/resources/metadata.csv"));
+			objReader = new BufferedReader(new FileReader("metadata.csv"));
 			strCurrentLine = objReader.readLine();
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -362,7 +479,6 @@ public class DBApp implements DBAppInterface{
 			b=true;
 			return b;
     	}
-
     public void updateTable(String str_TableName,
     		String str_ClusteringKeyValue,
     		Hashtable<String,Object> htbl_ColNameValue
@@ -382,19 +498,17 @@ public class DBApp implements DBAppInterface{
     		String[] str_arrOperators)
     		throws DBAppException{
     	//queries have to be more than operators
-    	if(arr_SQLTerms.length<=str_arrOperators.length) {
+    	if(arr_SQLTerms.length<=str_arrOperators.length)
+    	{
     		System.out.println("queries have to be more than operators!");
     		throw new DBAppException();
     	}
-    	
     	Hashtable<Integer,String> ht=new Hashtable<Integer,String>(); 
-    	return (Iterator)ht;
-    	
+    	return (Iterator)ht;	
     }
-    
     public static void main(String[] args) throws IOException, DBAppException 
     {
-  	String strTableName = "Student";
+    	String strTableName = "Student";
     	DBApp dbApp = new DBApp( );
     	dbApp.init();
     	Hashtable htblColNameType = new Hashtable( );
@@ -413,37 +527,52 @@ public class DBApp implements DBAppInterface{
     	htblColNameMax.put("gpa", "0.7");
     	
     	dbApp.createTable( strTableName, "id", htblColNameType,htblColNameMin,htblColNameMax);
-//    	
+    
+    	//INSERTION INTO TABLES
     	Hashtable htbl_values = new Hashtable( );
     	htbl_values.put("id", 1);
     	htbl_values.put("name", "Samiiiir");
     	htbl_values.put("gpa", 4);
+    	dbApp.insertIntoTable("Student",htbl_values);
+    	
+    	
+    	htbl_values.put("id", 4);
+    	dbApp.insertIntoTable("Student",htbl_values);
 
+    	htbl_values.put("id", 7);
     	dbApp.insertIntoTable("Student",htbl_values);
-    	htbl_values = new Hashtable( );
-    	htbl_values.put("id", 3);
-    	htbl_values.put("name", "Samiiiir");
-    	htbl_values.put("gpa", 4);
-//    	
-//    	
-    	dbApp.insertIntoTable("Student",htbl_values);
-    	htbl_values = new Hashtable( );
+    	
     	htbl_values.put("id", 8);
-    	htbl_values.put("name", "Samiiiir");
-    	htbl_values.put("gpa", 4);
-//    	
-//    	
     	dbApp.insertIntoTable("Student",htbl_values);
-    	Object obj=dbApp.deserialize("/home/husseljo/Desktop/DB2Project/src/main/resources/data/Student/page0.class");
-    	System.out.println(obj);
-    	Page arr=(Page)obj;
-    	for (int i = 0; i < arr.tuples.size(); i++) {
-			System.out.println(arr.tuples.get(i).record.toString());
-		}
+    	
+    	
+    	htbl_values.put("id", 3);
+    	dbApp.insertIntoTable("Student",htbl_values);
+    	
+    	htbl_values.put("id", 2);
+    	dbApp.insertIntoTable("Student",htbl_values);
+    	
+    	htbl_values.put("id", 5);
+    	dbApp.insertIntoTable("Student",htbl_values);
+    	
+    	htbl_values.put("id", 6);
+    	dbApp.insertIntoTable("Student",htbl_values);
     	
     	
     	
     	
+    	TableInfo StudentTableInfo=(TableInfo)dbApp.deserialize("/home/husseljo/Desktop/DB2Project/src/main/resources/data/Student/tableInfo.class");
+    	String studentPath="/home/husseljo/Desktop/DB2Project/src/main/resources/data/Student/";
+    	
+    	//Print all pages with their contents
+    	
+    	for (int i = 0; i < StudentTableInfo.pages.size(); i++) {
+    		String s=(String)(StudentTableInfo.pages.get(i)[0]);
+    		System.out.println("Tuples in "+s+":");
+    		Page page=(Page)deserialize(studentPath+"/"+s+".class");
+    		for (int j = 0; j < page.tuples.size(); j++) {
+    			System.out.println("tuple"+j+": "+page.tuples.get(j).record.toString());}
+    		System.out.println();
+    	}   	
     }
-    
 }

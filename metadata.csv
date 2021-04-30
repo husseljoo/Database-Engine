@@ -1,2 +1,4 @@
-Name, role, gpa, 
- abc, def
+Table Name, Column Name, Column Type, ClusteringKey, Indexed, min, max
+Student,gpa,java.lang.double,false,False,6.0,0.7
+Student,name,java.lang.String,false,False,A,ZZZZZZZZZZZ
+Student,id,java.lang.Integer,true,False,0,10000
