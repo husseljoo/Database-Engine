@@ -7,12 +7,14 @@ public class TableInfo implements Serializable
 	public Vector<Object[]> pages; //i.e: [[page0,"3"],[page1,"5"],[page2,"7"]]
 	public String clusteringKey;
 	public int clusterKeyIndex;
+	int nonOverflowPageNum;
 	
 	public TableInfo()
 	{
 		colOrder = new Vector<String>();
 		pages = new Vector<Object[]>();
 		clusteringKey= "";
+		nonOverflowPageNum=0;
 	}
 
 	public void setColOrder(Vector<String> colOrder) {

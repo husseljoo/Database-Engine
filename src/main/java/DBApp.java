@@ -83,7 +83,7 @@ public class DBApp implements DBAppInterface{
         //Once we create a Table, we create a folder/directory with its name inside the tables folder
         //it will contain all the pages of the table as well as a table_name.csv that contains info about
         // its page files (.class or .ser) i.e key range of page,bit indicating whether its full or not etc.
-        Path path =Paths.get("/home/husseljo/Desktop/git/Database_Project/src/main/resources/data/"+str_TableName);
+        Path path =Paths.get("/home/husseljo/Desktop/DB2Project/src/main/resources/data/"+str_TableName);
         try 
         {
             Files.createDirectories(path);
@@ -155,7 +155,7 @@ public class DBApp implements DBAppInterface{
     		boolean b=checkValidity(str_TableName,htbl_ColNameValue);
     		if(b) 
     		{
-    			String path="/home/husseljo/Desktop/git/Database_Project/src/main/resources/data/"+str_TableName+"/tableInfo.class";
+    			String path="/home/husseljo/Desktop/DB2Project/src/main/resources/data/"+str_TableName+"/tableInfo.class";
     			TableInfo tableInfo=(TableInfo)deserialize(path);
     			Tuple tuple=new Tuple();
     			String clusteringKey=tableInfo.clusteringKey;
@@ -171,8 +171,8 @@ public class DBApp implements DBAppInterface{
     				page.insert(tuple);
     				Object[] pageInfo = {"page0",keyValue};
     				tableInfo.pages.add(pageInfo);
-    				
-    				String pathOfPage = "/home/husseljo/Desktop/git/Database_Project/src/main/resources/data/"+str_TableName+"/page0.class";
+    				tableInfo.nonOverflowPageNum++;
+    				String pathOfPage = "/home/husseljo/Desktop/DB2Project/src/main/resources/data/"+str_TableName+"/page0.class";
     				serialize(page,pathOfPage);
     				serialize(tableInfo,path);
     			}
@@ -182,14 +182,14 @@ public class DBApp implements DBAppInterface{
     				String key =(String)keyValue.toString();
     				for(int i=0;i<tableInfo.pages.size();i++) 
     				{
-    					if((compareTo(key,tableInfo.pages.get(i)[1].toString())<0)||(i==tableInfo.pages.size()-1 && compareTo(key,tableInfo.pages.get(i)[1].toString())>0))
+    					if((compareTo(key,tableInfo.pages.get(i)[1].toString())<0) || (i==tableInfo.pages.size()-1 && compareTo(key,tableInfo.pages.get(i)[1].toString())>0))
     						{
     						position=i;
     						break;
     						}
     				}
     				
-    				String pathOfPage = "/home/husseljo/Desktop/git/Database_Project/src/main/resources/data/"+str_TableName+"/"+tableInfo.pages.get(position)[0].toString() +".class";
+    				String pathOfPage = "/home/husseljo/Desktop/DB2Project/src/main/resources/data/"+str_TableName+"/"+tableInfo.pages.get(position)[0].toString() +".class";
     				Page page=(Page) deserialize(pathOfPage);
     					if (!page.isFull()) 
     					{
@@ -212,17 +212,18 @@ public class DBApp implements DBAppInterface{
     public static void createNewPage(Tuple tuple, Page page, TableInfo tableInfo, String pageName, Object keyValue, String str_TableName, int posOfCurrentPage)
     {
     	//no next page
-    	if(tableInfo.pages.lastElement()[0].toString().equals(pageName))
+     	if(tableInfo.pages.lastElement()[0].toString().equals(pageName))
     	{
     		if(compareTo(tableInfo.pages.lastElement()[1].toString(),keyValue.toString())>0)
     		{
     			
-    			//last elem akbar, put in new pag
+    			//last elem akbar, put in new pa g
     			Page newPage = new Page();
     			newPage.insert(page.tuples.lastElement());
-    			Object[] pageInfo = {"page"+(tableInfo.pages.size()),tableInfo.pages.get(tableInfo.pages.size()-1)[1]};//esmaha maynfa3sh yeb2a .size, what if feeh 0,0_A el mfrood 1 msh 2
+    			Object[] pageInfo = {"page"+(tableInfo.nonOverflowPageNum),tableInfo.pages.get(tableInfo.pages.size()-1)[1]};//esmaha maynfa3sh yeb2a .size, what if feeh 0,0_A el mfrood 1 msh 2
     			tableInfo.pages.add(pageInfo);
-    			String pathOfPage = "/home/husseljo/Desktop/git/Database_Project/src/main/resources/data/"+str_TableName+"/"+pageInfo[0].toString() +".class";
+    			tableInfo.nonOverflowPageNum++;
+    			String pathOfPage = "/home/husseljo/Desktop/DB2Project/src/main/resources/data/"+str_TableName+"/"+pageInfo[0].toString() +".class";
     			serialize(newPage,pathOfPage);
     			
     			
@@ -233,9 +234,10 @@ public class DBApp implements DBAppInterface{
     			//tuple akbar
     			Page newPage = new Page();
     			newPage.insert(tuple);
-    			Object[] pageInfo = {"page"+(tableInfo.pages.size()),keyValue};
+    			Object[] pageInfo = {"page"+(tableInfo.nonOverflowPageNum),keyValue};
     			tableInfo.pages.add(pageInfo);
-    			String pathOfPage = "/home/husseljo/Desktop/git/Database_Project/src/main/resources/data/"+str_TableName+"/"+pageInfo[0].toString() +".class";
+    			tableInfo.nonOverflowPageNum++;
+    			String pathOfPage = "/home/husseljo/Desktop/DB2Project/src/main/resources/data/"+str_TableName+"/"+pageInfo[0].toString() +".class";
     			serialize(newPage,pathOfPage);
     		}
     			
@@ -243,7 +245,7 @@ public class DBApp implements DBAppInterface{
     	else
     	{
     		int positionOfNextPage = posOfCurrentPage+1;
-    		String pathOfPage = "/home/husseljo/Desktop/git/Database_Project/src/main/resources/data/"+str_TableName+"/"+tableInfo.pages.get(positionOfNextPage)[0].toString() +".class";
+    		String pathOfPage = "/home/husseljo/Desktop/DB2Project/src/main/resources/data/"+str_TableName+"/"+tableInfo.pages.get(positionOfNextPage)[0].toString() +".class";
 			Page nextPage=(Page) deserialize(pathOfPage);
     		//next page is full
     		if(nextPage.isFull())
@@ -258,14 +260,15 @@ public class DBApp implements DBAppInterface{
     			else
     			{
     				char letter= pageName.charAt(pageName.length()-1);
-    				nameOfOverFlowPage = pageName.replace(letter, letter++);
+    				char nextLetter=(char) (letter+1);
+    				nameOfOverFlowPage = pageName.replace(letter, nextLetter);
     			}
     			Object[] pageInfo = {nameOfOverFlowPage,tableInfo.pages.get(posOfCurrentPage)[1]};
     			
     			
     			
     			tableInfo.pages.insertElementAt(pageInfo,positionOfNextPage);
-    			String path = "/home/husseljo/Desktop/git/Database_Project/src/main/resources/data/"+str_TableName+"/"+nameOfOverFlowPage +".class";
+    			String path = "/home/husseljo/Desktop/DB2Project/src/main/resources/data/"+str_TableName+"/"+nameOfOverFlowPage +".class";
     			serialize(overFlow,path);
     			add(tuple,page,true,tableInfo.clusterKeyIndex,tableInfo,posOfCurrentPage);
     		}
@@ -349,7 +352,7 @@ public class DBApp implements DBAppInterface{
     	if (!Files.exists(path)) {
     		throw new DBAppException("Specified Table does not exist at all!");
     		}
-    	
+
     	BufferedReader objReader = null;
 		String strCurrentLine;
 		try {
@@ -536,7 +539,7 @@ public class DBApp implements DBAppInterface{
     	dbApp.insertIntoTable("Student",htbl_values);
     	
     	
-    	htbl_values.put("id", 4);
+    	htbl_values.put("id", 5);
     	dbApp.insertIntoTable("Student",htbl_values);
 
     	htbl_values.put("id", 7);
@@ -552,13 +555,16 @@ public class DBApp implements DBAppInterface{
     	htbl_values.put("id", 2);
     	dbApp.insertIntoTable("Student",htbl_values);
     	
-    	htbl_values.put("id", 5);
-    	dbApp.insertIntoTable("Student",htbl_values);
-    	
     	htbl_values.put("id", 6);
     	dbApp.insertIntoTable("Student",htbl_values);
     	
+    	htbl_values.put("id", 7);
+    	dbApp.insertIntoTable("Student",htbl_values);
     	
+    	htbl_values.put("id", 4);
+    	dbApp.insertIntoTable("Student",htbl_values);
+    	
+
     	
     	
     	TableInfo StudentTableInfo=(TableInfo)dbApp.deserialize("/home/husseljo/Desktop/DB2Project/src/main/resources/data/Student/tableInfo.class");
@@ -573,6 +579,7 @@ public class DBApp implements DBAppInterface{
     		for (int j = 0; j < page.tuples.size(); j++) {
     			System.out.println("tuple"+j+": "+page.tuples.get(j).record.toString());}
     		System.out.println();
-    	}   	
+    	}
+    	
     }
-}
+    }
