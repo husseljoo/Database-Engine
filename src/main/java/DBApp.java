@@ -152,8 +152,8 @@ public class DBApp implements DBAppInterface{
     		Hashtable<String,Object> htbl_ColNameValue)
     		throws DBAppException{
     
-    		boolean isValid=checkValidity(str_TableName,htbl_ColNameValue);
-    		if(isValid) 
+//    		boolean isValid=checkValidity(str_TableName,htbl_ColNameValue);
+    		if(true) 
     		{
     			String path="/home/husseljo/Desktop/DB2Project/src/main/resources/data/"+str_TableName+"/tableInfo.class";
     			TableInfo tableInfo=(TableInfo)deserialize(path);
@@ -355,9 +355,7 @@ public class DBApp implements DBAppInterface{
 		Tuple tuple = new Tuple();
 		try {
 			for (int i = 0; (strCurrentLine = objReader.readLine()) != null; i++) {
-				arrOfStr = strCurrentLine.split(",");
-//				for(int j=0;j<arrOfStr.length;j++) System.out.println( j+" :"+arrOfStr[j]);//DEBUGGER
-				
+				arrOfStr = strCurrentLine.split(",");				
 				if (arrOfStr[0].equals(str_TableName)) {
 					positionOfTable = i;
 					found = true;
@@ -465,18 +463,109 @@ public class DBApp implements DBAppInterface{
 			b=true;
 			return b;
     	}
+    
+    public static void checkValidUpdated(String currentColumn,String columnType,String columnMinimum,String columnMaximum) {}
     public void updateTable(String str_TableName,
     		String str_ClusteringKeyValue,
     		Hashtable<String,Object> htbl_ColNameValue
     		)
     		throws DBAppException{
     	
-    	//checkValidityOfInput to be implemented later
+    	Path pathTable =Paths.get("/home/husseljo/Desktop/DB2Project/src/main/resources/data/"+str_TableName);
+    	if (!Files.exists(pathTable))
+    		throw new DBAppException("Specified Table does not exist at all!");
+    		
     	
+    	//checkValidityOfInput to be implemented later
     	String path="/home/husseljo/Desktop/DB2Project/src/main/resources/data/"+str_TableName+"/tableInfo.class";
-		TableInfo tableInfo=(TableInfo)deserialize(path);
-		Tuple tuple=new Tuple();
+		TableInfo tableInfo=(TableInfo)deserialize(path);;
 		String clusteringKey=tableInfo.clusteringKey;
+		
+		for(int i=0;i<tableInfo.colOrder.size();i++) 
+		{
+			if(!tableInfo.colOrder.get(i).equals(clusteringKey)){
+				if(!htbl_ColNameValue.containsKey(tableInfo.colOrder.get(i)))
+					throw new DBAppException("Wrong Hashtable Keys!");
+				}
+		}
+		//if this code is reached then Hashtable contains correct column name values ---> check validity(type and range)
+		
+		BufferedReader objReader = null;
+		String strCurrentLine;
+		try {
+			objReader = new BufferedReader(new FileReader("metadata.csv"));
+			strCurrentLine = objReader.readLine();
+		} catch (IOException e) {e.printStackTrace();}
+		
+		String[] arrOfStr=new String[7];
+		String str_CurrentLine;
+		int positionOfTable=0;
+		
+		try {
+			for (int i = 0; (str_CurrentLine = objReader.readLine()) != null; i++) {
+				arrOfStr = str_CurrentLine.split(",");
+				
+				if (arrOfStr[0].equals(str_TableName)) {
+					break; //start of Table found in metadata file(prevent linearly searching for every column)
+					}
+				}
+			System.out.println(str_CurrentLine);//DEBUGGER
+			
+			String currentColumn;
+			String columnType;
+			String columnMinimum;
+			String columnMaximum;
+			
+			if(arrOfStr[1].equals(clusteringKey))//or arrOfStr[3]==true and parse it to Boolean clustering key in metadata
+				currentColumn=clusteringKey;
+			else 
+				currentColumn=(String)htbl_ColNameValue.get(arrOfStr[1]); //gets value of current column
+			
+			columnType=arrOfStr[2];
+			columnMinimum=arrOfStr[5];
+			columnMaximum=arrOfStr[6];
+			checkValidUpdated(currentColumn,columnType,columnMinimum,columnMaximum);
+			
+			
+			
+			while((str_CurrentLine = objReader.readLine()) != null ) {
+					arrOfStr = str_CurrentLine.split(",");
+					if (arrOfStr[0].equals(str_TableName)) {
+						System.out.println(str_CurrentLine);//DEBUGGER
+						if(arrOfStr[1].equals(clusteringKey))
+							currentColumn=clusteringKey;
+						else 
+							currentColumn=(String)htbl_ColNameValue.get(arrOfStr[1]); //gets value of current column
+						
+						columnType=arrOfStr[2];
+						columnMinimum=arrOfStr[5];
+						columnMaximum=arrOfStr[6];
+						checkValidUpdated(currentColumn,columnType,columnMinimum,columnMaximum);
+						}
+					else
+						break;
+				
+			}
+		}
+		catch (IOException e) {
+			e.printStackTrace();
+			}
+		
+//		Now check whether str_ClusteringKeyValue exists at all in any page
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+
+		Tuple tuple=new Tuple();
 		
 		for(int i=0;i<tableInfo.colOrder.size();i++) 
 		{	//create tuple to be inserted instead of existing tuple (updating it)
@@ -497,6 +586,8 @@ public class DBApp implements DBAppInterface{
 				break;
 				}
 		}
+		if(pagePosition==-1)
+			throw new DBAppException("str_ClusteringKeyValue does not exist at all(too big)!"); 
 		
 		String pageName=(String)tableInfo.pages.get(pagePosition)[0];
 		
@@ -518,6 +609,13 @@ public class DBApp implements DBAppInterface{
         //get position of tuple to be updated
         int tuplePosition=Math.abs(-(Collections.binarySearch(page.tuples, tuple,c))-1)-1;
 		
+      //checks if the tuple we matched is actually the one with the str_ClusteringKeyValue
+        
+        if(!page.tuples.get(tuplePosition).record.get(tableInfo.clusterKeyIndex).equals(str_ClusteringKeyValue)){ 
+			
+        	throw new DBAppException("The ClusteringKeyValue you entered does not exist!"); 
+        }
+        
 		System.out.println("Page position is: "+pagePosition);
 		System.out.println("Tuple position is: "+tuplePosition);
 		
@@ -558,7 +656,7 @@ public class DBApp implements DBAppInterface{
     	Hashtable htblColNameType = new Hashtable( );
     	htblColNameType.put("id", "java.lang.Integer");
     	htblColNameType.put("name", "java.lang.String");
-    	htblColNameType.put("gpa", "java.lang.double");
+    	htblColNameType.put("gpa", "java.lang.Double");
     	
     	Hashtable htblColNameMin = new Hashtable( );
     	htblColNameMin.put("id", "0");
@@ -575,18 +673,18 @@ public class DBApp implements DBAppInterface{
     	//INSERTION INTO TABLES
     	Hashtable htbl_values = new Hashtable( );
     	htbl_values.put("id", 1);
-    	htbl_values.put("name", "Samiiiir");
+    	htbl_values.put("name", "Sherif");
     	htbl_values.put("gpa", 4);
     	dbApp.insertIntoTable("Student",htbl_values);
     	
     	
-    	htbl_values.put("id", 5);
+    	htbl_values.put("id", 6);
     	dbApp.insertIntoTable("Student",htbl_values);
 
-    	htbl_values.put("id", 7);
+    	htbl_values.put("id",30);
     	dbApp.insertIntoTable("Student",htbl_values);
     	
-    	htbl_values.put("id", 8);
+    	htbl_values.put("id", 10);
     	dbApp.insertIntoTable("Student",htbl_values);
     	
     	
@@ -596,20 +694,19 @@ public class DBApp implements DBAppInterface{
     	htbl_values.put("id", 2);
     	dbApp.insertIntoTable("Student",htbl_values);
     	
-    	htbl_values.put("id", 6);
-    	dbApp.insertIntoTable("Student",htbl_values);
     	
-//    	htbl_values.put("id", 7);
-//    	dbApp.insertIntoTable("Student",htbl_values);
+    	
+    	htbl_values.put("id", 22);
+    	dbApp.insertIntoTable("Student",htbl_values);
     	
     	htbl_values.put("id", 4);
     	dbApp.insertIntoTable("Student",htbl_values);
     	
-    	htbl_values.put("id", 9);
+    	
+    	htbl_values.put("id", 7);
     	dbApp.insertIntoTable("Student",htbl_values);
-    	htbl_values.put("id", 10);
-    	dbApp.insertIntoTable("Student",htbl_values);
-    	htbl_values.put("id", 11);
+    	
+    	htbl_values.put("id",5);
     	dbApp.insertIntoTable("Student",htbl_values);
     	
     	
@@ -631,7 +728,7 @@ public class DBApp implements DBAppInterface{
     	htbl_TEST.put("gpa","1.4");
     	htbl_TEST.put("name","Hossam");
     	
-    	dbApp.updateTable("Student","11",htbl_TEST);
+    	dbApp.updateTable("Student","30",htbl_TEST);
     	
     	System.out.println();
     	System.out.println("--------------------------------------------------------");
