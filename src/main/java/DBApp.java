@@ -9,12 +9,11 @@ import java.io.ObjectOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Date;
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.Iterator;
@@ -464,7 +463,107 @@ public class DBApp implements DBAppInterface{
 			return b;
     	}
     
-    public static void checkValidUpdated(String currentColumn,String columnType,String columnMinimum,String columnMaximum) {}
+    public static void checkValidUpdated(String currentColumnValue,String columnType,String columnMinimum,String columnMaximum) throws DBAppException{
+    	
+    	switch(columnType) {
+		  case "java.lang.Integer":
+			  try {
+				  System.out.println("currentColumnValue"+currentColumnValue);
+				  System.out.println(currentColumnValue.getClass());
+				  
+				  Integer columnValue=Integer.parseInt(currentColumnValue);
+				  System.out.println("columnValue is: "+columnValue);
+				  
+				  Integer minValue=Integer.parseInt(columnMinimum);
+				  System.out.println("columnMinimum is: "+columnMinimum);
+				  
+				  Integer maxValue=Integer.parseInt(columnMaximum);
+				  System.out.println("columnMaximum is: "+columnMaximum);
+				  
+				  if(columnValue<minValue||columnValue>maxValue)
+					  throw new DBAppException("Input Value "+currentColumnValue+" is out of range!");
+			  }
+			  catch(Exception e){
+				  throw new DBAppException("The column named "+currentColumnValue+" should be an Integer");
+			  }
+			  
+			  break;
+		  case "java.lang.Double":
+			  try {
+//				  System.out.println(currentColumnValue);
+//				  System.out.println(currentColumnValue.getClass());
+				  
+				  Double columnValue=Double.parseDouble(currentColumnValue);
+//				  System.out.println("columnValue is: "+columnValue);
+				  
+				  Double minValue=Double.parseDouble(columnMinimum);
+//				  System.out.println("columnMinimum is: "+columnMinimum);
+				  
+				  Double maxValue=Double.parseDouble(columnMaximum);
+//				  System.out.println("columnMaximum is: "+columnMaximum);
+				  
+				  if(columnValue<minValue||columnValue>maxValue)
+					  throw new DBAppException("Input Value "+currentColumnValue+" is out of range!");
+			  }
+			  catch(Exception e){
+				  e.printStackTrace();
+				  throw new DBAppException("The column named "+currentColumnValue+" should be a Double");
+			  }
+		    break;
+		  case "java.lang.Date":
+			  try {
+				  Date columnValue=new SimpleDateFormat("yyyy/MM/dd").parse(currentColumnValue);
+				  Date minValue=new SimpleDateFormat("yyyy/MM/dd").parse(columnMinimum);
+				  Date maxValue=new SimpleDateFormat("yyyy/MM/dd").parse(columnMaximum);
+			  
+				  if(columnValue.before(minValue)||columnValue.after(maxValue))
+					  throw new DBAppException("Input Value "+currentColumnValue+" is out of range!");
+			  }
+			  catch(Exception e){
+				  throw new DBAppException("The column named "+currentColumnValue+" should be a Date");
+			  }
+			 break;
+		  default:
+			  if(currentColumnValue.compareTo(columnMinimum)<0 || currentColumnValue.compareTo(columnMaximum)>0)
+				  throw new DBAppException("Input Value "+currentColumnValue+" is out of range!");
+				
+		    
+		}
+		
+    }
+    
+    public static boolean sameValue(String a,Object o,String type) {
+		String s=o.toString();
+		
+		boolean b=false;
+		try {
+		switch(type) {
+		  case "java.lang.Integer":
+		    Integer w=Integer.parseInt(a);
+		    Integer w2=Integer.parseInt(s);
+		    b=w.equals(w2); 
+		    break;
+		  case "java.lang.Double":
+		    Double d=Double.parseDouble(a);
+		    Double d2=Double.parseDouble(s);
+		    b=d.equals(d2);
+		    break;
+		  case "java.lang.Date":
+			 Date date1=new SimpleDateFormat("yyyy/MM/dd").parse(a);
+			 Date date2=new SimpleDateFormat("yyyy/MM/dd").parse(s);
+			 b=date1.equals(date2);
+			 break;
+		  default:
+		    b=a.equals(s);
+		}
+		}
+		catch(Exception e) {}
+		
+		return b;
+		
+	}
+
+    
     public void updateTable(String str_TableName,
     		String str_ClusteringKeyValue,
     		Hashtable<String,Object> htbl_ColNameValue
@@ -480,6 +579,9 @@ public class DBApp implements DBAppInterface{
     	String path="/home/husseljo/Desktop/DB2Project/src/main/resources/data/"+str_TableName+"/tableInfo.class";
 		TableInfo tableInfo=(TableInfo)deserialize(path);;
 		String clusteringKey=tableInfo.clusteringKey;
+		
+		if( htbl_ColNameValue.size() != (tableInfo.colOrder.size()-1))
+			throw new DBAppException("More Hashtable Keys than expected!");
 		
 		for(int i=0;i<tableInfo.colOrder.size();i++) 
 		{
@@ -501,6 +603,8 @@ public class DBApp implements DBAppInterface{
 		String str_CurrentLine;
 		int positionOfTable=0;
 		
+		String clusteringColumnType="";
+		
 		try {
 			for (int i = 0; (str_CurrentLine = objReader.readLine()) != null; i++) {
 				arrOfStr = str_CurrentLine.split(",");
@@ -511,36 +615,46 @@ public class DBApp implements DBAppInterface{
 				}
 			System.out.println(str_CurrentLine);//DEBUGGER
 			
-			String currentColumn;
+			 
+			
+			String currentColumnValue;
 			String columnType;
 			String columnMinimum;
 			String columnMaximum;
 			
-			if(arrOfStr[1].equals(clusteringKey))//or arrOfStr[3]==true and parse it to Boolean clustering key in metadata
-				currentColumn=clusteringKey;
+			//check whether each (by now determined to be valid)key column 
+			
+			if(arrOfStr[1].equals(clusteringKey)) {//or arrOfStr[3]==true and parse it to Boolean clustering key in metadata
+				currentColumnValue=str_ClusteringKeyValue;
+				clusteringColumnType=arrOfStr[2];
+			}
 			else 
-				currentColumn=(String)htbl_ColNameValue.get(arrOfStr[1]); //gets value of current column
+				currentColumnValue=(String)htbl_ColNameValue.get(arrOfStr[1]); //gets value of current column
 			
 			columnType=arrOfStr[2];
 			columnMinimum=arrOfStr[5];
 			columnMaximum=arrOfStr[6];
-			checkValidUpdated(currentColumn,columnType,columnMinimum,columnMaximum);
+			checkValidUpdated(currentColumnValue,columnType,columnMinimum,columnMaximum);
 			
 			
 			
 			while((str_CurrentLine = objReader.readLine()) != null ) {
+					if(str_CurrentLine==null)
+						break;
+					
 					arrOfStr = str_CurrentLine.split(",");
 					if (arrOfStr[0].equals(str_TableName)) {
 						System.out.println(str_CurrentLine);//DEBUGGER
-						if(arrOfStr[1].equals(clusteringKey))
-							currentColumn=clusteringKey;
+						if(arrOfStr[1].equals(clusteringKey)) {
+							currentColumnValue=str_ClusteringKeyValue;
+							clusteringColumnType=arrOfStr[2];}
 						else 
-							currentColumn=(String)htbl_ColNameValue.get(arrOfStr[1]); //gets value of current column
+							currentColumnValue=(String)htbl_ColNameValue.get(arrOfStr[1]); //gets value of current column
 						
 						columnType=arrOfStr[2];
 						columnMinimum=arrOfStr[5];
 						columnMaximum=arrOfStr[6];
-						checkValidUpdated(currentColumn,columnType,columnMinimum,columnMaximum);
+						checkValidUpdated(currentColumnValue,columnType,columnMinimum,columnMaximum);
 						}
 					else
 						break;
@@ -608,13 +722,25 @@ public class DBApp implements DBAppInterface{
         Page page=(Page)deserialize(pagePath);
         //get position of tuple to be updated
         int tuplePosition=Math.abs(-(Collections.binarySearch(page.tuples, tuple,c))-1)-1;
+        if(clusteringColumnType.equals("java.util.String"))
+        	tuplePosition+=1;
 		
       //checks if the tuple we matched is actually the one with the str_ClusteringKeyValue
         
-        if(!page.tuples.get(tuplePosition).record.get(tableInfo.clusterKeyIndex).equals(str_ClusteringKeyValue)){ 
-			
+        Object actualFoundTuple=page.tuples.get(tuplePosition).record.get(tableInfo.clusterKeyIndex);
+        boolean clusteringKeyValueDoesExist=sameValue(str_ClusteringKeyValue,actualFoundTuple,clusteringColumnType);
+        
+        if(!clusteringKeyValueDoesExist){ 
+        	
+        	System.out.println(page.tuples.get(tuplePosition).record.get(tableInfo.clusterKeyIndex).getClass());
+        	System.out.println("input ClusterinKeyValue -->"+str_ClusteringKeyValue.getClass());
+        	
+        	
         	throw new DBAppException("The ClusteringKeyValue you entered does not exist!"); 
         }
+        
+        
+        
         
 		System.out.println("Page position is: "+pagePosition);
 		System.out.println("Tuple position is: "+tuplePosition);
@@ -661,12 +787,12 @@ public class DBApp implements DBAppInterface{
     	Hashtable htblColNameMin = new Hashtable( );
     	htblColNameMin.put("id", "0");
     	htblColNameMin.put("name", "A");
-    	htblColNameMin.put("gpa", "6.0");
+    	htblColNameMin.put("gpa", "0.7");
     	
     	Hashtable htblColNameMax = new Hashtable( );
     	htblColNameMax.put("id", "10000");
     	htblColNameMax.put("name", "ZZZZZZZZZZZ");
-    	htblColNameMax.put("gpa", "0.7");
+    	htblColNameMax.put("gpa", "6.0");
     	
     	dbApp.createTable( strTableName, "id", htblColNameType,htblColNameMin,htblColNameMax);
     
@@ -674,7 +800,7 @@ public class DBApp implements DBAppInterface{
     	Hashtable htbl_values = new Hashtable( );
     	htbl_values.put("id", 1);
     	htbl_values.put("name", "Sherif");
-    	htbl_values.put("gpa", 4);
+    	htbl_values.put("gpa", 4.0);
     	dbApp.insertIntoTable("Student",htbl_values);
     	
     	
@@ -725,7 +851,7 @@ public class DBApp implements DBAppInterface{
     	}
     	
     	Hashtable htbl_TEST = new Hashtable( );
-    	htbl_TEST.put("gpa","1.4");
+    	htbl_TEST.put("gpa","4.0");
     	htbl_TEST.put("name","Hossam");
     	
     	dbApp.updateTable("Student","30",htbl_TEST);
