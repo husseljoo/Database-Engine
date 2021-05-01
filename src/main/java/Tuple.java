@@ -16,7 +16,8 @@ public class Tuple implements Serializable
 		this.record.add(s);
 	}
 	
-
+	
+	
 
 	public static void main(String[] args) {
 

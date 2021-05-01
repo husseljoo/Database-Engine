@@ -152,8 +152,8 @@ public class DBApp implements DBAppInterface{
     		Hashtable<String,Object> htbl_ColNameValue)
     		throws DBAppException{
     
-    		boolean b=checkValidity(str_TableName,htbl_ColNameValue);
-    		if(b) 
+    		boolean isValid=checkValidity(str_TableName,htbl_ColNameValue);
+    		if(isValid) 
     		{
     			String path="/home/husseljo/Desktop/DB2Project/src/main/resources/data/"+str_TableName+"/tableInfo.class";
     			TableInfo tableInfo=(TableInfo)deserialize(path);
@@ -182,7 +182,7 @@ public class DBApp implements DBAppInterface{
     				String key =(String)keyValue.toString();
     				for(int i=0;i<tableInfo.pages.size();i++) 
     				{
-    					if((compareTo(key,tableInfo.pages.get(i)[1].toString())<0) || (i==tableInfo.pages.size()-1 && compareTo(key,tableInfo.pages.get(i)[1].toString())>0))
+    					if((compareTo(key,tableInfo.pages.get(i)[1].toString())<0)||(i==tableInfo.pages.size()-1 && compareTo(key,tableInfo.pages.get(i)[1].toString())>0))
     						{
     						position=i;
     						break;
@@ -217,7 +217,7 @@ public class DBApp implements DBAppInterface{
     		if(compareTo(tableInfo.pages.lastElement()[1].toString(),keyValue.toString())>0)
     		{
     			
-    			//last elem akbar, put in new pa g
+    			//last elem akbar, put in new page
     			Page newPage = new Page();
     			newPage.insert(page.tuples.lastElement());
     			Object[] pageInfo = {"page"+(tableInfo.nonOverflowPageNum),tableInfo.pages.get(tableInfo.pages.size()-1)[1]};//esmaha maynfa3sh yeb2a .size, what if feeh 0,0_A el mfrood 1 msh 2
@@ -275,9 +275,9 @@ public class DBApp implements DBAppInterface{
     		//next page is not full
     		else
     		{
-    			add(page.tuples.lastElement(),nextPage,false,tableInfo.clusterKeyIndex);
-    			add(tuple,page,true,tableInfo.clusterKeyIndex);
-    			tableInfo.pages.get(posOfCurrentPage)[1] = keyValue;
+    			add(page.tuples.lastElement(),nextPage,false,tableInfo.clusterKeyIndex,tableInfo,posOfCurrentPage+1);
+    			add(tuple,page,true,tableInfo.clusterKeyIndex,tableInfo,posOfCurrentPage);
+    			
     		}
     		serialize(nextPage,pathOfPage);
     	}
@@ -328,31 +328,14 @@ public class DBApp implements DBAppInterface{
     	tableInfo.pages.get(posOfCurrentPage)[1] = page.tuples.lastElement().record.get(pos);
     	
     }
-    public static void add(Tuple tuple,Page page, boolean isTruncate,int pos) 
-    {
-    	Comparator<Tuple> c = new Comparator<Tuple>() {
-            public int compareReal(Tuple t1,Tuple t2, int pos)
-            {
-                return compareTo(t1.record.get(pos).toString(),t2.record.get(pos).toString());
-            }
-
-			public int compare(Tuple t1, Tuple t2) {
-				return compareReal(t1,t2,pos);
-			}
-        };
-        if(isTruncate)
-   		 page.tuples.remove(page.tuples.size()-1);
-    	int position=Math.abs(-(Collections.binarySearch(page.tuples, tuple,c))-1);
-    	page.tuples.insertElementAt(tuple, position);
-    	
-    }
+   
     public static boolean checkValidity(String str_TableName,Hashtable<String,Object> htbl_ColNameValue) throws DBAppException{
     	
     	Path path =Paths.get("/home/husseljo/Desktop/DB2Project/src/main/resources/data/"+str_TableName);
     	if (!Files.exists(path)) {
     		throw new DBAppException("Specified Table does not exist at all!");
     		}
-
+    	
     	BufferedReader objReader = null;
 		String strCurrentLine;
 		try {
@@ -488,7 +471,65 @@ public class DBApp implements DBAppInterface{
     		)
     		throws DBAppException{
     	
+    	//checkValidityOfInput to be implemented later
+    	
+    	String path="/home/husseljo/Desktop/DB2Project/src/main/resources/data/"+str_TableName+"/tableInfo.class";
+		TableInfo tableInfo=(TableInfo)deserialize(path);
+		Tuple tuple=new Tuple();
+		String clusteringKey=tableInfo.clusteringKey;
+		
+		for(int i=0;i<tableInfo.colOrder.size();i++) 
+		{	//create tuple to be inserted instead of existing tuple (updating it)
+			if(tableInfo.colOrder.get(i).equals(clusteringKey))
+				tuple.record.add(str_ClusteringKeyValue);
+			else
+				tuple.record.add(htbl_ColNameValue.get(tableInfo.colOrder.get(i)));
+		}
+		
+		
+		//get position of the page that contains tuple to be updated
+		int pagePosition=-1;
+		for(int i=0;i<tableInfo.pages.size();i++) 
+		{
+			if((compareTo(str_ClusteringKeyValue,tableInfo.pages.get(i)[1].toString())<=0))
+				{ 
+				pagePosition=i;
+				break;
+				}
+		}
+		
+		String pageName=(String)tableInfo.pages.get(pagePosition)[0];
+		
+		if(pagePosition==-1)throw new DBAppException("no place");//should be redundant as we have a checker to be implemented above
+		
+		
+		Comparator<Tuple> c = new Comparator<Tuple>() {
+            public int compareReal(Tuple t1,Tuple t2, int pos)
+            {
+                return compareTo(t1.record.get(pos).toString(),t2.record.get(pos).toString());
+            }
+
+			public int compare(Tuple t1, Tuple t2) {
+				return compareReal(t1,t2,tableInfo.clusterKeyIndex);
+			}
+        };
+        String pagePath="/home/husseljo/Desktop/DB2Project/src/main/resources/data/"+str_TableName+"/"+pageName+".class";
+        Page page=(Page)deserialize(pagePath);
+        //get position of tuple to be updated
+        int tuplePosition=Math.abs(-(Collections.binarySearch(page.tuples, tuple,c))-1)-1;
+		
+		System.out.println("Page position is: "+pagePosition);
+		System.out.println("Tuple position is: "+tuplePosition);
+		
+		page.tuples.set(tuplePosition,tuple);
+		serialize(page,pagePath);
+		
+		
+		
+		
+		
     }
+
     public void deleteFromTable(String str_TableName,
     		Hashtable<String,Object> htbl_ColNameValue)
     		throws DBAppException{
@@ -558,13 +599,18 @@ public class DBApp implements DBAppInterface{
     	htbl_values.put("id", 6);
     	dbApp.insertIntoTable("Student",htbl_values);
     	
-    	htbl_values.put("id", 7);
-    	dbApp.insertIntoTable("Student",htbl_values);
+//    	htbl_values.put("id", 7);
+//    	dbApp.insertIntoTable("Student",htbl_values);
     	
     	htbl_values.put("id", 4);
     	dbApp.insertIntoTable("Student",htbl_values);
     	
-
+    	htbl_values.put("id", 9);
+    	dbApp.insertIntoTable("Student",htbl_values);
+    	htbl_values.put("id", 10);
+    	dbApp.insertIntoTable("Student",htbl_values);
+    	htbl_values.put("id", 11);
+    	dbApp.insertIntoTable("Student",htbl_values);
     	
     	
     	TableInfo StudentTableInfo=(TableInfo)dbApp.deserialize("/home/husseljo/Desktop/DB2Project/src/main/resources/data/Student/tableInfo.class");
@@ -574,12 +620,34 @@ public class DBApp implements DBAppInterface{
     	
     	for (int i = 0; i < StudentTableInfo.pages.size(); i++) {
     		String s=(String)(StudentTableInfo.pages.get(i)[0]);
-    		System.out.println("Tuples in "+s+":");
+    		System.out.println("Tuples in "+s+":"+"  MAX VALUE IS "+((Integer)StudentTableInfo.pages.get(i)[1]));
     		Page page=(Page)deserialize(studentPath+"/"+s+".class");
     		for (int j = 0; j < page.tuples.size(); j++) {
     			System.out.println("tuple"+j+": "+page.tuples.get(j).record.toString());}
     		System.out.println();
     	}
+    	
+    	Hashtable htbl_TEST = new Hashtable( );
+    	htbl_TEST.put("gpa","1.4");
+    	htbl_TEST.put("name","Hossam");
+    	
+    	dbApp.updateTable("Student","11",htbl_TEST);
+    	
+    	System.out.println();
+    	System.out.println("--------------------------------------------------------");
+    	System.out.println();
+    	
+    	for (int i = 0; i < StudentTableInfo.pages.size(); i++) {
+    		String s=(String)(StudentTableInfo.pages.get(i)[0]);
+    		System.out.println("Tuples in "+s+":"+"  MAX VALUE IS "+((Integer)StudentTableInfo.pages.get(i)[1]));
+    		Page page=(Page)deserialize(studentPath+"/"+s+".class");
+    		for (int j = 0; j < page.tuples.size(); j++) {
+    			System.out.println("tuple"+j+": "+page.tuples.get(j).record.toString());}
+    		System.out.println();
+    	}
+    	
+    	
+    	
     	
     }
     }

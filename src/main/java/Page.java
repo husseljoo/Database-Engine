@@ -11,7 +11,7 @@ public class Page implements Serializable
 	
 	public Page()
 	{
-		this.N=2;
+		this.N=3;
 	}
 	
 
