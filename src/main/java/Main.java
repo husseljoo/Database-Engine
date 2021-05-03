@@ -1,24 +1,67 @@
-import java.util.Date;
 import java.text.SimpleDateFormat;
+import java.util.Date;
 
 public class Main {
 
 	
 	
 	public static void main(String[] args) {
-		String a="1.4";
-		try {
-			Double d=Double.parseDouble(a);
-			System.out.println(d);
 		
-		}catch(Exception e) {e.printStackTrace();}
-//		Object o="2.2";
-//		String type="java.lang.Double";
-//		boolean b=sameValueHusseljo(a, o, type);
-//		System.out.println(b);
-		String s1="Ahmed";
-		String s2="AAussein";
-//		System.out.println(s1.compareTo(s2));
+		 
+		
+		 	String input = "Fri Apr 01 00:00:00 EET 2011";
+	       String minDate="1990-01-01";
+	        
+	        try {
+	        SimpleDateFormat Parser = new SimpleDateFormat("EEE MMM d HH:mm:ss zzz yyyy");
+	        Date date = Parser.parse(input);
+	        System.out.println(date.getClass());
+	        }
+	        catch(Exception e) {
+	        	System.out.println("couldnt parse it!"); }
+	        
+	        try {
+		        SimpleDateFormat Parser = new SimpleDateFormat("EEE MMM d HH:mm:ss zzz yyyy");
+		        int year = Integer.parseInt(minDate.trim().substring(0, 4));
+                int month = Integer.parseInt(minDate.trim().substring(5, 7));
+                int day = Integer.parseInt(minDate.trim().substring(8));
+                Date dob = new Date(year - 1900, month - 1, day);
+		        
+                System.out.println(dob.getDate());
+//		        Date date = Parser.parse(dob);
+		        System.out.println("e7na fel minDate");
+		        System.out.println(dob.getClass());
+		        
+		        }
+		        catch(Exception e) {
+		        	System.out.println("couldnt parse it!"); }
+		
+		
+		
+//		Date date_passed = new Date(2011 - 1900, 4 - 1, 1);
+//		 
+//		 int n=0;
+//		 date_passed.getDate();
+//		 String dateString=date_passed+"";
+//		 System.out.println(dateString);
+//		
+//		 
+//		try {
+//		System.out.println("aa");
+//		Date dateParsedBack=new Date(dateString);
+////		dateParsedBack.parse(dateString);
+//		System.out.println("bb");
+//			System.out.println("dateParsedBack: "+dateParsedBack);
+//			System.out.println("dateParsedBack class is: "+dateParsedBack);
+//		
+//		
+//		}
+//		catch(Exception e) {
+//			System.out.println("couldnt pasrse it!");}
+		
+		
+		
+		
 		
 	}
 	
