@@ -12,6 +12,7 @@ public class TableInfo implements Serializable
 	public int clusterKeyIndex;
 	public String clusterKeyType;
 	int nonOverflowPageNum;
+	int numOfPages;
 	
 	public TableInfo()
 	{
@@ -20,6 +21,7 @@ public class TableInfo implements Serializable
 		clusteringKey= "";
 		clusterKeyType = "";
 		nonOverflowPageNum=0;
+		numOfPages = 0;
 	}
 
 	public void setColOrder(Vector<String> colOrder) {

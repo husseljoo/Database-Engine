@@ -6,7 +6,6 @@ public class Page implements Serializable
 {
 
 	int N=this.pageEntries(); //move to tableInfo
-	
 	Vector<Tuple> tuples=new Vector<Tuple>();
 	
 	public Page()

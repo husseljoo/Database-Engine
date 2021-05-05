@@ -149,7 +149,7 @@ public class DBApp implements DBAppInterface{
         	counter++;
         }
         
-        /***************************/
+        /*********/
         //Once we create a Table, we create a folder/directory with its name inside the tables folder
         //it will contain all the pages of the table as well as a table_name.csv that contains info about
         // its page files (.class or .ser) i.e key range of page,bit indicating whether its full or not etc.
@@ -160,7 +160,7 @@ public class DBApp implements DBAppInterface{
             
          } catch (Exception e) {
         	  e.printStackTrace();
-            System.err.println("Failed to create directory!" + e.getMessage());
+         //   System.err.println("Failed to create directory!" + e.getMessage());
 
           }
         
@@ -208,7 +208,7 @@ public class DBApp implements DBAppInterface{
 	    catch(IOException ex)
 	        {
 	        ex.printStackTrace();
-	        System.out.println("IOException is caught");
+	        //System.out.println("IOException is caught");
 	        }
 
     }
@@ -232,7 +232,7 @@ public class DBApp implements DBAppInterface{
         catch(Exception e)
         {
         	e.printStackTrace();
-        	System.out.println("IOException is caught");
+        //	System.out.println("IOException is caught");
         	
         }
     	return o;
@@ -250,11 +250,6 @@ public class DBApp implements DBAppInterface{
     			
     			for(int i=0;i<tableInfo.colOrder.size();i++) 
     			{
-//    				if(i==tableInfo.clusterKeyIndex && tableInfo.clusterKeyType.toLowerCase().equals("java.lang.date"))
-//    				{
-//    					Date date = (Date)htbl_ColNameValue.get(tableInfo.colOrder.get(i));
-//    					date.
-//    				}
     				tuple.record.add(htbl_ColNameValue.get(tableInfo.colOrder.get(i)));
     			}
     			Object keyValue=htbl_ColNameValue.get(clusteringKey);
@@ -262,17 +257,17 @@ public class DBApp implements DBAppInterface{
     			{
     				Page page = new Page();
     				page.insert(tuple);
-    				Object[] pageInfo = {"page0",keyValue};
+    				Object[] pageInfo = {"1",keyValue};
     				tableInfo.pages.add(pageInfo);
     				tableInfo.nonOverflowPageNum++;
-    				String pathOfPage = pathOfFile+str_TableName+"/page0.class";
+    				tableInfo.numOfPages++;
+    				String pathOfPage = pathOfFile+str_TableName+"/1.class";
     				serialize(page,pathOfPage);
     				serialize(tableInfo,path);
     			}
     			else
     			{
     				int position=0;
-    				String key =(String)keyValue.toString();
     				for(int i=0;i<tableInfo.pages.size();i++) 
     				{
     					if((compareTo(keyValue,tableInfo.pages.get(i)[1])<0)||(i==tableInfo.pages.size()-1 && compareTo(keyValue,tableInfo.pages.get(i)[1])>0))
@@ -294,8 +289,7 @@ public class DBApp implements DBAppInterface{
     					else 
     					{
     						createNewPage(tuple,page,tableInfo,tableInfo.pages.get(position)[0].toString(),keyValue,str_TableName,position);
-    						//change max in pages dynamically
-    						//add in tableinfo new tuple,page
+    						
     						serialize(page,pathOfPage);
     						serialize(tableInfo,path);
     					}
@@ -313,9 +307,11 @@ public class DBApp implements DBAppInterface{
     			//last elem akbar, put in new page
     			Page newPage = new Page();
     			newPage.insert(page.tuples.lastElement());
-    			Object[] pageInfo = {"page"+(tableInfo.nonOverflowPageNum),tableInfo.pages.get(tableInfo.pages.size()-1)[1]};//esmaha maynfa3sh yeb2a .size, what if feeh 0,0_A el mfrood 1 msh 2
+    			tableInfo.numOfPages++;
+    			Object[] pageInfo = {tableInfo.numOfPages+"",tableInfo.pages.get(tableInfo.pages.size()-1)[1]};//esmaha maynfa3sh yeb2a .size, what if feeh 0,0_A el mfrood 1 msh 2
     			tableInfo.pages.add(pageInfo);
     			tableInfo.nonOverflowPageNum++;
+    			
     			String pathOfPage = pathOfFile+str_TableName+"/"+pageInfo[0].toString() +".class";
     			serialize(newPage,pathOfPage);
 
@@ -326,9 +322,11 @@ public class DBApp implements DBAppInterface{
     			//tuple akbar
     			Page newPage = new Page();
     			newPage.insert(tuple);
-    			Object[] pageInfo = {"page"+(tableInfo.nonOverflowPageNum),keyValue};
+    			tableInfo.numOfPages++;
+    			Object[] pageInfo = {tableInfo.numOfPages+"",keyValue};
     			tableInfo.pages.add(pageInfo);
     			tableInfo.nonOverflowPageNum++;
+    			
     			String pathOfPage = pathOfFile+str_TableName+"/"+pageInfo[0].toString() +".class";
     			serialize(newPage,pathOfPage);
     		}
@@ -344,23 +342,12 @@ public class DBApp implements DBAppInterface{
     		{
     			Page overFlow = new Page();
     			overFlow.insert(page.tuples.lastElement());
-    			String nameOfOverFlowPage = "";
-    			if(Character.isDigit(pageName.charAt(pageName.length()-1)))
-    			{
-    				nameOfOverFlowPage = pageName + "_A";
-    			}
-    			else
-    			{
-    				char letter= pageName.charAt(pageName.length()-1);
-    				char nextLetter=(char) (letter+1);
-    				nameOfOverFlowPage = pageName.replace(letter, nextLetter);
-    			}
-    			Object[] pageInfo = {nameOfOverFlowPage,tableInfo.pages.get(posOfCurrentPage)[1]};
-    			
-    			
+
+    			tableInfo.numOfPages++;
+    			Object[] pageInfo = {tableInfo.numOfPages+"",tableInfo.pages.get(posOfCurrentPage)[1]};
+    			String path = pathOfFile+str_TableName+"/"+tableInfo.numOfPages +".class";
     			
     			tableInfo.pages.insertElementAt(pageInfo,positionOfNextPage);
-    			String path = pathOfFile+str_TableName+"/"+nameOfOverFlowPage +".class";
     			serialize(overFlow,path);
     			add(tuple,page,true,tableInfo.clusterKeyIndex,tableInfo,posOfCurrentPage);
     		}
@@ -687,7 +674,6 @@ public class DBApp implements DBAppInterface{
 			if((compareTo(tuple.record.get(tableInfo.clusterKeyIndex),tableInfo.pages.get(i)[1])<=0))
 				{ 
 				pagePosition=i;
-				;
 				break;
 				}
 		}
@@ -747,6 +733,11 @@ public class DBApp implements DBAppInterface{
     		Hashtable<String,Object> htbl_ColNameValue)
     		throws DBAppException
     {
+    	
+    	Path pathTable =Paths.get(pathOfFile+str_TableName);
+    	if (!Files.exists(pathTable))
+    		throw new DBAppException("Specified Table does not exist");
+    	
     	String path=pathOfFile+str_TableName+"/tableInfo.class";
 		TableInfo tableInfo=(TableInfo)deserialize(path);
 		String[] columnName=new String[htbl_ColNameValue.size()];
@@ -757,6 +748,16 @@ public class DBApp implements DBAppInterface{
 			values[i]=htbl_ColNameValue.get(columnName[i]);
 		//	System.out.println("value:"+values[i]);
 		}
+		for(int i=0;i<columnName.length;i++) {
+			if(!(tableInfo.colOrder.contains(columnName[i])))
+					throw new DBAppException(columnName[i]+" doesn't exist");
+		}
+		  
+		Hashtable<String,Object> hash = new Hashtable<String, Object>();
+		for(int i=0;i<columnName.length;i++) {
+			hash.put(columnName[i], values[i]);
+		}
+		checkValidity(str_TableName,hash);
 		
 		for(int i=0;i<tableInfo.pages.size();i++) {
 			String pageName=(String)tableInfo.pages.get(i)[0];
@@ -778,6 +779,7 @@ public class DBApp implements DBAppInterface{
 	        			pageDeleted=true;
 	        			Path pathOfPage=FileSystems.getDefault().getPath(pagePath);
 	        			try {
+	        				tableInfo.numOfPages--;
 							Files.delete(pathOfPage);
 							tableInfo.pages.remove(i);
 							i--;
@@ -941,7 +943,7 @@ public class DBApp implements DBAppInterface{
     	//queries have to be more than operators
     	if(arr_SQLTerms.length<=str_arrOperators.length)
     	{
-    		System.out.println("queries have to be more than operators!");
+    		//System.out.println("queries have to be more than operators!");
     		throw new DBAppException();
     	}
     	Hashtable<Integer,String> ht=new Hashtable<Integer,String>(); 
@@ -969,6 +971,7 @@ public class DBApp implements DBAppInterface{
     	
     	dbApp.createTable( strTableName, "id", htblColNameType,htblColNameMin,htblColNameMax);
     
+    	TableInfo StudentTableInfo=(TableInfo)dbApp.deserialize("src/main/resources/data/Student/tableInfo.class");
     	//INSERTION INTO TABLES
     	Hashtable htbl_values = new Hashtable( );
     	htbl_values.put("id", 1);
@@ -977,108 +980,74 @@ public class DBApp implements DBAppInterface{
     	
     	
     	dbApp.insertIntoTable("Student",htbl_values);
+    	StudentTableInfo=(TableInfo)dbApp.deserialize("src/main/resources/data/Student/tableInfo.class");
     	
-    	
-    	htbl_values.put("id", 6);
+    	htbl_values.put("id", 13);
     	dbApp.insertIntoTable("Student",htbl_values);
-
-    	htbl_values.put("id", 8);
+    	StudentTableInfo=(TableInfo)dbApp.deserialize("src/main/resources/data/Student/tableInfo.class");
+    	htbl_values.put("id", 100);
     	dbApp.insertIntoTable("Student",htbl_values);
-    	
-    	htbl_values.put("id", 10);
+    	StudentTableInfo=(TableInfo)dbApp.deserialize("src/main/resources/data/Student/tableInfo.class");
+    	htbl_values.put("id", 22);
     	dbApp.insertIntoTable("Student",htbl_values);
-    	
-    	
-    	htbl_values.put("id", 3);
-    	dbApp.insertIntoTable("Student",htbl_values);
-    	
-    	htbl_values.put("id", 2);
-    	dbApp.insertIntoTable("Student",htbl_values);
-    	
-    	
-    	
-    	htbl_values.put("id", 9);
-    	dbApp.insertIntoTable("Student",htbl_values);
-    	
-    	htbl_values.put("id", 4);
-    	dbApp.insertIntoTable("Student",htbl_values);
-    	
+    	StudentTableInfo=(TableInfo)dbApp.deserialize("src/main/resources/data/Student/tableInfo.class");
     	
     	htbl_values.put("id", 7);
     	dbApp.insertIntoTable("Student",htbl_values);
+    	StudentTableInfo=(TableInfo)dbApp.deserialize("src/main/resources/data/Student/tableInfo.class");
+    	htbl_values.put("id", 43);
+    	dbApp.insertIntoTable("Student",htbl_values);
+    	StudentTableInfo=(TableInfo)dbApp.deserialize("src/main/resources/data/Student/tableInfo.class");
     	
-    	htbl_values.put("id",5);
+    	
+    	htbl_values.put("id", 232);
+    	dbApp.insertIntoTable("Student",htbl_values);
+    	StudentTableInfo=(TableInfo)dbApp.deserialize("src/main/resources/data/Student/tableInfo.class");
+    	htbl_values.put("id", 8);
     	dbApp.insertIntoTable("Student",htbl_values);
     	
     	
-    	TableInfo StudentTableInfo=(TableInfo)dbApp.deserialize("src/main/resources/data/courses/tableInfo.class");
-    	String studentPath="src/main/resources/data/courses/";
+    	htbl_values.put("id", 17);
+    	dbApp.insertIntoTable("Student",htbl_values);
     	
-    	//Print all pages with their contents
+    	htbl_values.put("id",2);
+    	dbApp.insertIntoTable("Student",htbl_values);
+    	htbl_values.put("id",5);
+    	dbApp.insertIntoTable("Student",htbl_values);
+    	htbl_values.put("id",4);
+    	dbApp.insertIntoTable("Student",htbl_values);
+    	htbl_values.put("id",3);
+    	dbApp.insertIntoTable("Student",htbl_values);
+    	htbl_values.put("id",6);
+    	dbApp.insertIntoTable("Student",htbl_values);
+    	htbl_values.put("id",10);
+    	dbApp.insertIntoTable("Student",htbl_values);
+    	htbl_values.put("id",11);
+    	dbApp.insertIntoTable("Student",htbl_values);
+    	htbl_values.put("id",9);
+    	dbApp.insertIntoTable("Student",htbl_values);
+    	TableInfo StudentTableInfo1=(TableInfo)dbApp.deserialize("src/main/resources/data/Student/tableInfo.class");
+    	String studentPath="src/main/resources/data/Student/";
     	
-//    	for (int i = 0; i < StudentTableInfo.pages.size(); i++) {
-//    		String s=(String)(StudentTableInfo.pages.get(i)[0]);
-//    		System.out.println("Tuples in "+s+":"+"  MAX VALUE IS "+((Integer)StudentTableInfo.pages.get(i)[1]));
-//    		Page page=(Page)deserialize(studentPath+"/"+s+".class");
-//    		for (int j = 0; j < page.tuples.size(); j++) {
-//    			System.out.println("tuple"+j+": "+page.tuples.get(j).record.toString());}
-//    		System.out.println();
-//    	}
-    	
-    	Hashtable row = new Hashtable( );
-    	row.put("course_id", "1100");
-        row.put("course_name", "bar");
-        row.put("hours", 13);
-
-
-      //  dbApp.updateTable(strTableName, "course_id", row);
-    	
-    	System.out.println();
-    	System.out.println("--------------------------------------------------------");
-    	System.out.println();
-    	
-    	
-    	
-    	for (int i = 0; i < StudentTableInfo.pages.size(); i++) 
-    	{
-    		String s=(String)(StudentTableInfo.pages.get(i)[0]);
-    		System.out.println("Tuples in "+s+":"+"  MAX VALUE IS "+(StudentTableInfo.pages.get(i)[1]));
-    		Page page=(Page)deserialize(studentPath+"/"+s+".class");
-    		for (int j = 0; j < page.tuples.size(); j++) {
-    			System.out.println("tuple"+j+": "+page.tuples.get(j).record.toString());}
-    		System.out.println();
-    	}
-    	System.out.println("------------------------------");
     	Hashtable<String,Object> delete = new Hashtable<String,Object>( );
-    	delete.put("id",8);
-    	
+    	delete.put("gpa","3"); 
+    	delete.put("name","DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD");
+    	   	
     	
     	dbApp.deleteFromTable("Student",delete);
     	
     	
-    	StudentTableInfo=(TableInfo)dbApp.deserialize("src/main/resources/data/Student/tableInfo.class");
+    	StudentTableInfo1=(TableInfo)dbApp.deserialize("src/main/resources/data/Student/tableInfo.class");
+    	//Print all pages with their contents
     	
-//    	htbl_values.put("id", 11);
-//    	dbApp.insertIntoTable("Student",htbl_values);
-//    	
-//    	htbl_values.put("id", 12);
-//    	dbApp.insertIntoTable("Student",htbl_values);
-//    	
-
-//    	
-    	for (int i = 0; i < StudentTableInfo.pages.size(); i++) 
-    	{
-    		String s=(String)(StudentTableInfo.pages.get(i)[0]);
-    		System.out.println("Tuples in "+s+":"+"  MAX VALUE IS "+(StudentTableInfo.pages.get(i)[1]));
-    		Page page=(Page)deserialize(studentPath+"/"+s+".class");
+    	for (int i = 0; i < StudentTableInfo1.pages.size(); i++) {
+    		String s=(StudentTableInfo1.pages.get(i)[0].toString());
+    		System.out.println("Tuples in "+s+":"+"  MAX VALUE IS "+(StudentTableInfo1.pages.get(i)[1]));
+    		Page page=(Page)deserialize(studentPath+s+".class");
     		for (int j = 0; j < page.tuples.size(); j++) {
     			System.out.println("tuple"+j+": "+page.tuples.get(j).record.toString());}
     		System.out.println();
     	}
-    	
-    	
-    	
-    	
     	}
     
     }
