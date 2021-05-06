@@ -589,7 +589,6 @@ public class DBApp implements DBAppInterface{
 					break; //start of Table found in metadata file(prevent linearly searching for every column)
 					}
 				}
-			//System.out.println(str_CurrentLine);//DEBUGGER
 			
 			 
 			
@@ -620,7 +619,6 @@ public class DBApp implements DBAppInterface{
 					
 					arrOfStr = str_CurrentLine.split(",");
 					if (arrOfStr[0].equals(str_TableName)) {
-					//	System.out.println(str_CurrentLine);//DEBUGGER
 						if(arrOfStr[1].equals(clusteringKey)) {
 							currentColumnValue=str_ClusteringKeyValue;
 							clusteringColumnType=arrOfStr[2];}
@@ -710,18 +708,10 @@ public class DBApp implements DBAppInterface{
         boolean clusteringKeyValueDoesExist=sameValue(str_ClusteringKeyValue,actualFoundTuple,clusteringColumnType);
         
         if(!clusteringKeyValueDoesExist){ 
-        	
-        //	System.out.println(page.tuples.get(tuplePosition).record.get(tableInfo.clusterKeyIndex).getClass());//DEBUGGER
-        	//System.out.println("input ClusterinKeyValue -->"+str_ClusteringKeyValue.getClass());//DEBUGGER
-        	
         	throw new DBAppException("The ClusteringKeyValue you entered does not exist!"); 
         }
         
         
-        
-        
-	//	System.out.println("Page position is: "+pagePosition); //DEBUGGER
-	//	System.out.println("Tuple position is: "+tuplePosition);//DEBUGGER
 		
 		page.tuples.set(tuplePosition,tuple);
 		serialize(page,pagePath);
@@ -746,7 +736,6 @@ public class DBApp implements DBAppInterface{
 		for(int i=0;i<htbl_ColNameValue.size();i++) {
 			columnName[i]=enumeration.nextElement();
 			values[i]=htbl_ColNameValue.get(columnName[i]);
-		//	System.out.println("value:"+values[i]);
 		}
 		for(int i=0;i<columnName.length;i++) {
 			if(!(tableInfo.colOrder.contains(columnName[i])))
@@ -814,18 +803,10 @@ public class DBApp implements DBAppInterface{
     	
 		  case ("java.lang.integer"):
 			  try {
-				  System.out.println("currentColumnValue"+currentColumnValue);
-				  System.out.println(currentColumnValue.getClass());
-				  
 				  Integer columnValue=Integer.parseInt(currentColumnValue);
-				  System.out.println("columnValue is: "+columnValue);
-				  
 				  Integer minValue=Integer.parseInt(columnMinimum);
-				  System.out.println("columnMinimum is: "+columnMinimum);
-				  
 				  Integer maxValue=Integer.parseInt(columnMaximum);
-				  System.out.println("columnMaximum is: "+columnMaximum);
-				  
+				 
 				  if(columnValue<minValue||columnValue>maxValue)
 					  throw new DBAppException("Input Value "+currentColumnValue+" is out of range!");
 			  }
@@ -943,7 +924,6 @@ public class DBApp implements DBAppInterface{
     	//queries have to be more than operators
     	if(arr_SQLTerms.length<=str_arrOperators.length)
     	{
-    		//System.out.println("queries have to be more than operators!");
     		throw new DBAppException();
     	}
     	Hashtable<Integer,String> ht=new Hashtable<Integer,String>(); 

@@ -14,3 +14,6 @@ transcripts,course_name,java.lang.String,false,False,"AAAAAA","zzzzzz"
 transcripts,student_id,java.lang.String,false,False,"43-0000","99-9999"
 pcs,pc_id,java.lang.Integer,true,False,0,20000
 pcs,student_id,java.lang.String,false,False,"43-0000","99-9999"
+Student,gpa,java.lang.double,false,False,0,4
+Student,name,java.lang.String,false,False,"A","ZZZZZZZZZZZ"
+Student,id,java.lang.Integer,true,False,0,10000
