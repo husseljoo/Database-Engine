@@ -589,6 +589,7 @@ public class DBApp implements DBAppInterface{
 					break; //start of Table found in metadata file(prevent linearly searching for every column)
 					}
 				}
+			//System.out.println(str_CurrentLine);//DEBUGGER
 			
 			 
 			
@@ -619,6 +620,7 @@ public class DBApp implements DBAppInterface{
 					
 					arrOfStr = str_CurrentLine.split(",");
 					if (arrOfStr[0].equals(str_TableName)) {
+					//	System.out.println(str_CurrentLine);//DEBUGGER
 						if(arrOfStr[1].equals(clusteringKey)) {
 							currentColumnValue=str_ClusteringKeyValue;
 							clusteringColumnType=arrOfStr[2];}
@@ -708,10 +710,18 @@ public class DBApp implements DBAppInterface{
         boolean clusteringKeyValueDoesExist=sameValue(str_ClusteringKeyValue,actualFoundTuple,clusteringColumnType);
         
         if(!clusteringKeyValueDoesExist){ 
+        	
+        //	System.out.println(page.tuples.get(tuplePosition).record.get(tableInfo.clusterKeyIndex).getClass());//DEBUGGER
+        	//System.out.println("input ClusterinKeyValue -->"+str_ClusteringKeyValue.getClass());//DEBUGGER
+        	
         	throw new DBAppException("The ClusteringKeyValue you entered does not exist!"); 
         }
         
         
+        
+        
+	//	System.out.println("Page position is: "+pagePosition); //DEBUGGER
+	//	System.out.println("Tuple position is: "+tuplePosition);//DEBUGGER
 		
 		page.tuples.set(tuplePosition,tuple);
 		serialize(page,pagePath);
@@ -736,6 +746,7 @@ public class DBApp implements DBAppInterface{
 		for(int i=0;i<htbl_ColNameValue.size();i++) {
 			columnName[i]=enumeration.nextElement();
 			values[i]=htbl_ColNameValue.get(columnName[i]);
+		//	System.out.println("value:"+values[i]);
 		}
 		for(int i=0;i<columnName.length;i++) {
 			if(!(tableInfo.colOrder.contains(columnName[i])))
@@ -803,10 +814,18 @@ public class DBApp implements DBAppInterface{
     	
 		  case ("java.lang.integer"):
 			  try {
+				//  System.out.println("currentColumnValue"+currentColumnValue);
+				//  System.out.println(currentColumnValue.getClass());
+				  
 				  Integer columnValue=Integer.parseInt(currentColumnValue);
+				//  System.out.println("columnValue is: "+columnValue);
+				  
 				  Integer minValue=Integer.parseInt(columnMinimum);
+				//  System.out.println("columnMinimum is: "+columnMinimum);
+				  
 				  Integer maxValue=Integer.parseInt(columnMaximum);
-				 
+				//  System.out.println("columnMaximum is: "+columnMaximum);
+				  
 				  if(columnValue<minValue||columnValue>maxValue)
 					  throw new DBAppException("Input Value "+currentColumnValue+" is out of range!");
 			  }
@@ -915,19 +934,227 @@ public class DBApp implements DBAppInterface{
 		return b;
 		
 	}
+   
     public void createIndex(String
     		str_TableName,
-    		String[] str_arrColName) throws DBAppException{}
+    		String[] str_arrColName) throws DBAppException
+    {
+    	int sizeGrid=str_arrColName.length+1;
+    	DDVector index=new DDVector(sizeGrid);
+    	
+    	String indexName ="";
+    	for(int i =0;i<str_arrColName.length;i++)
+    		indexName+=str_arrColName[i];
+    	
+    	
+    	
+    	Path path =Paths.get(pathOfFile+str_TableName+"/"+indexName);
+        try 
+        {
+            Files.createDirectories(path);
+            
+         } catch (Exception e) {
+        	  throw new DBAppException("Already has index on these columns");
+         	}
+   
+        
+        //get min and max of every column in input array from metadata
+    	
+//    	directory for index
+    	
+    	TableInfo tableInfo=(TableInfo)deserialize("src/main/resources/data/"+str_TableName+"/tableInfo.class");
+    	String tablePath="src/main/resources/data/"+str_TableName+"/";
+    	
+    	int[] colNum = new int[str_arrColName.length]; 
+    	//get indexes of the array column
+    	for(int i = 0;i<str_arrColName.length;i++)
+    		colNum[i]=tableInfo.colOrder.indexOf(str_arrColName[i]);
+    	
+    	Object[][] minmax=getMinMax(str_TableName, str_arrColName);
+    	
+    	int[] cell = new int[str_arrColName.length];
+    	//for over each page, over each row/tuple
+    	for (int i = 0; i < tableInfo.pages.size(); i++) 
+    	{
+    		String s=tableInfo.pages.get(i)[0].toString();
+    		Page page=(Page)deserialize(tablePath+s+".class");
+    		for (int j = 0; j < page.tuples.size(); j++) 
+    		{
+    			Tuple tuple= page.tuples.get(j);
+    			//get each value from tuple of input columns
+    			for(int k = 0;k<colNum.length;k++)
+    			{
+    				cell[k] = findDiv(minmax[k][0],minmax[k][1],tuple.record.get(k));
+    			}
+    			Vector bucketInCell = index.getFromDimensions(cell);
+    			if(bucketInCell.size()==0)
+    			{
+    				Bucket bucket = new Bucket();
+    				Object[] tupleRef = new Object[2];
+    				tupleRef[0] = s; //page name in which tuple resides
+    				tupleRef[1] = j; //index of tuple in the page
+    				bucket.insert(tupleRef);
+    				String pathOfFile = path+"/0.class";
+    				serialize(bucket, pathOfFile);
+    				Object[] bucketInfo = new Object[2];
+    				bucketInfo[0] = "0";
+    				bucketInfo[1] = false;
+    				index.insertAtDimensions(cell, bucketInfo); //index is the DDVector
+    			}
+    			else
+    			{
+    				boolean noFoundBucket = true;
+    				for(int k =0;k<bucketInCell.size();k++)
+    				{
+    					Object[] bucketInfo = (Object[]) bucketInCell.get(k); //bucketInCell is a vector
+    					if(bucketInfo[1].equals(false)) // true as in full
+    					{
+    						String pathOfBucket = path+"/"+bucketInfo[0].toString()+".class"; //typecasting needed?
+    						Bucket bucket = (Bucket)deserialize(pathOfBucket);
+    						Object[] tupleRef = new Object[2]; 
+    						tupleRef[0] = s; //page name in which tuple resides
+    	    				tupleRef[1] = j; //index of tuple in the page
+    	    				bucket.insert(tupleRef);
+    	    				boolean isFull = bucket.isFull();
+    	    				serialize(bucket, pathOfBucket);
+    	    				bucketInfo[1] = isFull;
+    	    				noFoundBucket = false;
+    					}
+    				}
+//    				if(noFoundBucket)
+    				{
+    					Bucket bucket = new Bucket();
+        				Object[] tupleRef = new Object[2];
+        				tupleRef[0] = s;
+        				tupleRef[1] = j;
+        				bucket.insert(tupleRef);
+        				String pathOfFile = path+"/" +index.bucketNumber+ ".class";
+        				serialize(bucket, pathOfFile);
+        				Object[] bucketInfo = new Object[2];
+        				bucketInfo[0] = index.bucketNumber;
+        				bucketInfo[1] = false;
+        				index.insertAtDimensions(cell, bucketInfo);
+    				}
+    			}
+    		}
+    	}
+    	
+    
+    
+    
+    }
+    
+    
+	public static Object[][] getMinMax(String str_TableName,Vector<String> vect_arrColName){
+
+	BufferedReader objReader = null;
+	String strCurrentLine="";
+	//skip the first line
+	try {
+		objReader = new BufferedReader(new FileReader("src/main/resources/metadata.csv"));
+		strCurrentLine = objReader.readLine();
+	} catch (IOException e) {
+		e.printStackTrace();
+	}
+	
+	
+	Object[][] returnList=new Object[vect_arrColName.size()][2];
+	
+	
+	//actually start looking for column values
+	try {
+		
+		String[] splitted=null;
+		boolean bool=false;
+		for (int i = 0; (strCurrentLine = objReader.readLine()) != null; i++) {
+			splitted=strCurrentLine.split(",");
+			if(splitted[0].equals(str_TableName)) {
+				bool=true;
+				break;}}
+		
+		int counter=vect_arrColName.size();
+		while(counter>0) {
+			for(int i=0;i<vect_arrColName.size();i++) {
+			   if(splitted[1].equals(vect_arrColName.get(i))) {    	
+				   	
+				    Object min=splitted[5];
+				    Object max=splitted[6];
+				   	returnList[i][0]=min; //min
+				   	returnList[i][1]=max; //max
+				   	strCurrentLine = objReader.readLine();
+				   	System.out.println(strCurrentLine);
+				   	splitted=strCurrentLine.split(",");
+			   		counter--;
+//			   		System.out.println();
+//			   		System.out.println("Column name is:"+vect_arrColName.get(i));
+//			   		System.out.println("minimum is:"+min.toString());
+//				   	System.out.println("maximum is:"+max.toString());
+//				   	System.out.println();
+				   	break;
+			   }
+				
+				}
+			}
+		
+		} catch (IOException e) {
+		e.printStackTrace();
+	}  
+	
+	return returnList;
+	}
+    
     public Iterator selectFromTable(SQLTerm[] arr_SQLTerms,
     		String[] str_arrOperators)
     		throws DBAppException{
     	//queries have to be more than operators
     	if(arr_SQLTerms.length<=str_arrOperators.length)
     	{
+    		//System.out.println("queries have to be more than operators!");
     		throw new DBAppException();
     	}
     	Hashtable<Integer,String> ht=new Hashtable<Integer,String>(); 
     	return (Iterator)ht;	
+    }
+    public int findDivNum(String m, String max, String val)
+    {
+    	char min = m.charAt(0);
+		int nOfComb=0;
+		for(int i=((int)min)-96;i<=max.length();i++) {
+			int k=(int)Math.pow(26, i);
+			nOfComb+=k;
+		}
+		int divisions=nOfComb/10;
+		int combBefore=0;
+		for(int i=((int)min)-96;i<val.length();i++) {
+			combBefore+=(int)Math.pow(26, i);
+		}
+		for(int i=0;i<val.length();i++) {
+			if((int)(val.charAt(i))-97==0)
+				continue;
+			int a=(val.charAt(i)-97)*(int)Math.pow(26, val.length()-i-1);
+			combBefore+=a;
+		}
+		combBefore++;
+		int a=(int)Math.ceil(combBefore*1.0/divisions);
+		if(a==11)
+			a=10;
+		return a;
+    }
+    public int findDiv(Object min, Object max, Object val)
+    {
+		return 0;
+    }
+    public int findDivNum(int min, int max, int val)
+    {
+    	return 1;
+    }
+    public int findDivNum(double min, double max, double val)
+    {
+    	return 1;
+    }
+    public int findDivNum(Date min, Date max, Date val)
+    {
+    	return 1;
     }
     public static void main(String[] args) throws IOException, DBAppException, ParseException 
     {
@@ -1024,10 +1251,14 @@ public class DBApp implements DBAppInterface{
     		String s=(StudentTableInfo1.pages.get(i)[0].toString());
     		System.out.println("Tuples in "+s+":"+"  MAX VALUE IS "+(StudentTableInfo1.pages.get(i)[1]));
     		Page page=(Page)deserialize(studentPath+s+".class");
-    		for (int j = 0; j < page.tuples.size(); j++) {
-    			System.out.println("tuple"+j+": "+page.tuples.get(j).record.toString());}
+    		for (int j = 0; j < page.tuples.size(); j++) 
+    		{
+    			System.out.println("khaled");
+    			System.out.println("tuple"+j+": "+page.tuples.get(j).record.toString());
+    		}
     		System.out.println();
     	}
+    	
     	}
     
     }

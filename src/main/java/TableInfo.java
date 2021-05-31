@@ -13,6 +13,7 @@ public class TableInfo implements Serializable
 	public String clusterKeyType;
 	int nonOverflowPageNum;
 	int numOfPages;
+//	DDVector[] indexes=new DDVector[];
 	
 	public TableInfo()
 	{
