@@ -5,12 +5,12 @@ import java.util.Vector;
 public class Page implements Serializable 
 {
 
-	int N=this.pageEntries(); //move to tableInfo
+	int N=2; //move to tableInfo
 	Vector<Tuple> tuples=new Vector<Tuple>();
 	
 	public Page()
 	{
-		this.N=this.pageEntries();
+		this.N=2;
 	}
 	
 

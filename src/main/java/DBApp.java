@@ -1,5 +1,6 @@
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileReader;
@@ -14,12 +15,14 @@ import java.nio.file.Paths;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Vector;
 
 public class DBApp implements DBAppInterface{
@@ -212,6 +215,13 @@ public class DBApp implements DBAppInterface{
 	        }
 
     }
+    
+    
+    
+    
+    
+    
+    
     public static Object deserialize(String path) {
     	Object o=null;
     	try
@@ -249,56 +259,152 @@ public class DBApp implements DBAppInterface{
     			String clusteringKey=tableInfo.clusteringKey;
     			
     			for(int i=0;i<tableInfo.colOrder.size();i++) 
-    			{
     				tuple.record.add(htbl_ColNameValue.get(tableInfo.colOrder.get(i)));
-    			}
-    			Object keyValue=htbl_ColNameValue.get(clusteringKey);
-    			if(tableInfo.pages.size()==0)
-    			{
-    				Page page = new Page();
-    				page.insert(tuple);
-    				Object[] pageInfo = {"1",keyValue};
-    				tableInfo.pages.add(pageInfo);
-    				tableInfo.nonOverflowPageNum++;
-    				tableInfo.numOfPages++;
-    				String pathOfPage = pathOfFile+str_TableName+"/1.class";
-    				serialize(page,pathOfPage);
-    				serialize(tableInfo,path);
-    			}
-    			else
-    			{
-    				int position=0;
-    				for(int i=0;i<tableInfo.pages.size();i++) 
-    				{
-    					if((compareTo(keyValue,tableInfo.pages.get(i)[1])<0)||(i==tableInfo.pages.size()-1 && compareTo(keyValue,tableInfo.pages.get(i)[1])>0))
-    						{
-    						position=i;
-    						break;
-    						}
-    				}
-    				
-    				String pathOfPage = pathOfFile+str_TableName+"/"+tableInfo.pages.get(position)[0].toString() +".class";
-    				Page page=(Page) deserialize(pathOfPage);
-    					if (!page.isFull()) 
-    					{
-    						add(tuple, page,false,tableInfo.clusterKeyIndex,tableInfo,position);
-    						
-    						serialize(page,pathOfPage);
-    						serialize(tableInfo,path);
-    					}
-    					else 
-    					{
-    						createNewPage(tuple,page,tableInfo,tableInfo.pages.get(position)[0].toString(),keyValue,str_TableName,position);
-    						
-    						serialize(page,pathOfPage);
-    						serialize(tableInfo,path);
-    					}
-    				}
     			
+    			Object keyValue=htbl_ColNameValue.get(clusteringKey);
+    			Object[] tupleRef = new Object[2];
+    			
+    			boolean indexOnPrimary = isIndexOnPrimaryExists(tableInfo);
+    			DDVector index = (DDVector)deserialize("src/main/resources/data/Student/id/index.class");
+    			boolean hasIndex = false;
+    			if(index==null)
+    				hasIndex = false;
+    			if(!hasIndex)
+    			{
+    				if(tableInfo.pages.size()==0)
+        			{
+        				Page page = new Page();
+        				page.insert(tuple);
+        				Object[] pageInfo = {"1",keyValue};
+        				tupleRef[0]="1";
+        				tupleRef[1]=0;
+        				tableInfo.pages.add(pageInfo);
+        				tableInfo.nonOverflowPageNum++;
+        				tableInfo.numOfPages++;
+        				String pathOfPage = pathOfFile+str_TableName+"/1.class";
+        				serialize(page,pathOfPage);
+        				serialize(tableInfo,path);
+        			}
+        			else
+        			{
+        				int position=0;
+        				for(int i=0;i<tableInfo.pages.size();i++) 
+        				{
+        					if((compareTo(keyValue,tableInfo.pages.get(i)[1])<0)||(i==tableInfo.pages.size()-1 && compareTo(keyValue,tableInfo.pages.get(i)[1])>0))
+        						{
+        						position=i;
+        						break;
+        						}
+        				}
+        				
+        				String pathOfPage = pathOfFile+str_TableName+"/"+tableInfo.pages.get(position)[0].toString() +".class";
+        				Page page=(Page) deserialize(pathOfPage);
+        				Page pageToUpdate = null;
+        				if (!page.isFull()) 
+        					{
+        						tupleRef[0] = tableInfo.pages.get(position)[0].toString();
+        						tupleRef[1]= add(tuple, page,false,tableInfo.clusterKeyIndex,tableInfo,position);
+        						serialize(page,pathOfPage);
+        						serialize(tableInfo,path);
+        					}
+        					else 
+        					{
+        						tupleRef = createNewPage(tuple,page,tableInfo,tableInfo.pages.get(position)[0].toString(),keyValue,str_TableName,position);
+        						
+        						serialize(page,pathOfPage);
+        						serialize(tableInfo,path);
+        					}
+        				}
+        			
+        			
+        			//get best index this table has, and best for this tuple
+    				
+        			//temp
+    				
+        			if(true)
+        			{
+        				Vector<String> indexedCol = tableInfo.indices.get(0).indexedCol;
+            			
+            			
+            			Object[][] minmax=getMinMax(str_TableName, indexedCol);
+            			int[] colNum = new int[indexedCol.size()]; 
+            	    	for(int i = 0;i<indexedCol.size();i++)
+            	    		colNum[i]=tableInfo.colOrder.indexOf(indexedCol.get(i));
+            	    	
+            	    	int[] cell = new int[colNum.length];
+            	    	for(int k = 0;k<colNum.length;k++)
+            	    		cell[k] = findDiv(minmax[k][0],minmax[k][1],minmax[k][2],tuple.record.get(colNum[k]));
+            	    	
+            	    	
+            	    	Vector bucketInCell = index.getFromDimensions(cell);
+            	   		if(bucketInCell.size()==0)
+            	    	{
+            	    		Bucket bucket = new Bucket();
+            	    		bucket.insert(tupleRef);
+            	    		String pathOfF = pathOfFile+str_TableName+"/id/"+index.bucketNumber+".class";
+            	    		serialize(bucket, pathOfF);
+            	    		Object[] bucketInfo = new Object[2];
+            	    		bucketInfo[0] = index.bucketNumber+"";
+            	    		bucketInfo[1] = false;
+            	    		index.insertAtDimensions(cell, bucketInfo);
+            	    	}
+            	    	else
+            	    	{
+            	    		boolean noFoundBucket = true;
+            	    		for(int k =0;k<bucketInCell.size();k++)
+            	    		{
+            	    			Object[] bucketInfo = (Object[]) bucketInCell.get(k);
+            	    			if(bucketInfo[1].equals(false))
+            	    			{
+            	    				String pathOfBucket = pathOfFile+str_TableName+"/id/"+"/"+bucketInfo[0]+".class";
+            	    				Bucket bucket = (Bucket)deserialize(pathOfBucket);
+            	    				bucket.insert(tupleRef);
+            	    				boolean isFull = bucket.isFull();
+            	    				serialize(bucket, pathOfBucket);
+            	    				bucketInfo[1] = isFull;
+            	    				noFoundBucket = false;
+            	    			}
+            	    		}
+            	    		if(noFoundBucket)
+            	    		{
+            	    			Bucket bucket = new Bucket();
+            	    			bucket.insert(tupleRef);
+            	    			String pathOfF = pathOfFile+str_TableName+"/id/"+index.bucketNumber+".class";
+                	    		serialize(bucket, pathOfF);
+            	    			Object[] bucketInfo = new Object[2];
+    	        	        	bucketInfo[0] = index.bucketNumber+"";
+    	        	        	bucketInfo[1] = false;
+    	        	        	index.insertAtDimensions(cell, bucketInfo);
+            	    		}
+            	    	}
+            	   		serialize(index,"src/main/resources/data/Student/id/index.class");
+        			}
+    			}
+    			else //index on primary exists
+    			{
+    				
+    			}
+   }
+    public static boolean isIndexOnPrimaryExists(TableInfo tableInfo)
+    {
+    	for(int i =0;i<tableInfo.indices.size();i++)
+    	{
+    		for(int j =0;j<tableInfo.indices.get(i).indexedCol.size();j++)
+    		{
+    			if(tableInfo.clusteringKey.equals(tableInfo.indices.get(i).indexedCol.get(j)))
+    				return true;
     		}
-    public static void createNewPage(Tuple tuple, Page page, TableInfo tableInfo, String pageName, Object keyValue, String str_TableName, int posOfCurrentPage)
+    	}
+    	return false;
+    }
+    public static IndexInfo getBestIndex()
+    {
+    	return null;
+    }
+    public static Object[] createNewPage(Tuple tuple, Page page, TableInfo tableInfo, String pageName, Object keyValue, String str_TableName, int posOfCurrentPage)
     {
     	//no next page
+    	Object[] res = new Object[2];
      	if(tableInfo.pages.lastElement()[0].toString().equals(pageName))
     	{
     		if(compareTo(tableInfo.pages.lastElement()[1].toString(),keyValue.toString())>0)
@@ -307,6 +413,7 @@ public class DBApp implements DBAppInterface{
     			//last elem akbar, put in new page
     			Page newPage = new Page();
     			newPage.insert(page.tuples.lastElement());
+    			res[0] = tableInfo.numOfPages+"";
     			tableInfo.numOfPages++;
     			Object[] pageInfo = {tableInfo.numOfPages+"",tableInfo.pages.get(tableInfo.pages.size()-1)[1]};//esmaha maynfa3sh yeb2a .size, what if feeh 0,0_A el mfrood 1 msh 2
     			tableInfo.pages.add(pageInfo);
@@ -315,7 +422,8 @@ public class DBApp implements DBAppInterface{
     			String pathOfPage = pathOfFile+str_TableName+"/"+pageInfo[0].toString() +".class";
     			serialize(newPage,pathOfPage);
 
-    			add(tuple,page,true,tableInfo.clusterKeyIndex,tableInfo,posOfCurrentPage);
+    			res[1]=add(tuple,page,true,tableInfo.clusterKeyIndex,tableInfo,posOfCurrentPage);
+    			
     		}
     		else
     		{
@@ -324,6 +432,8 @@ public class DBApp implements DBAppInterface{
     			newPage.insert(tuple);
     			tableInfo.numOfPages++;
     			Object[] pageInfo = {tableInfo.numOfPages+"",keyValue};
+    			res[0] = pageInfo[0];
+    			res[1]= 0;
     			tableInfo.pages.add(pageInfo);
     			tableInfo.nonOverflowPageNum++;
     			
@@ -342,24 +452,26 @@ public class DBApp implements DBAppInterface{
     		{
     			Page overFlow = new Page();
     			overFlow.insert(page.tuples.lastElement());
-
     			tableInfo.numOfPages++;
     			Object[] pageInfo = {tableInfo.numOfPages+"",tableInfo.pages.get(posOfCurrentPage)[1]};
     			String path = pathOfFile+str_TableName+"/"+tableInfo.numOfPages +".class";
-    			
+    			res[0]=tableInfo.numOfPages+"";
     			tableInfo.pages.insertElementAt(pageInfo,positionOfNextPage);
     			serialize(overFlow,path);
-    			add(tuple,page,true,tableInfo.clusterKeyIndex,tableInfo,posOfCurrentPage);
+    			res[1]=add(tuple,page,true,tableInfo.clusterKeyIndex,tableInfo,posOfCurrentPage);
     		}
     		//next page is not full
     		else
     		{
+    			res[0] = tableInfo.pages.get(posOfCurrentPage)[0].toString();
     			add(page.tuples.lastElement(),nextPage,false,tableInfo.clusterKeyIndex,tableInfo,posOfCurrentPage+1);
-    			add(tuple,page,true,tableInfo.clusterKeyIndex,tableInfo,posOfCurrentPage);
+    			res[1]=add(tuple,page,true,tableInfo.clusterKeyIndex,tableInfo,posOfCurrentPage);
     			
     		}
     		serialize(nextPage,pathOfPage);
+    		
     	}
+     	return res;
     }
     public static int compareTo(Object s1, Object s2)
     {
@@ -397,7 +509,7 @@ public class DBApp implements DBAppInterface{
     		}
     	}
     }
-    public static void add(Tuple tuple,Page page, boolean isTruncate,int pos,TableInfo tableInfo,int posOfCurrentPage) 
+    public static int add(Tuple tuple,Page page, boolean isTruncate,int pos,TableInfo tableInfo,int posOfCurrentPage) 
     {
     	Comparator<Tuple> c = new Comparator<Tuple>() {
             public int compareReal(Tuple t1,Tuple t2, int pos)
@@ -414,7 +526,7 @@ public class DBApp implements DBAppInterface{
     	int position=Math.abs(-(Collections.binarySearch(page.tuples, tuple,c))-1);
     	page.tuples.insertElementAt(tuple, position);
     	tableInfo.pages.get(posOfCurrentPage)[1] = page.tuples.lastElement().record.get(pos);
-    	
+    	return position;
     }
     public static void checkValidity(String str_TableName,Hashtable<String,Object> htbl_ColNameValue) throws DBAppException{
     	
@@ -729,6 +841,129 @@ public class DBApp implements DBAppInterface{
 		
 		
     }
+    
+    
+    public static void removeFromIndexes(Vector<Tuple> tuplesToDelete,String str_TableName,Vector<IndexInfo> Indexes,int clusterKeyIndex,String ignoreIndexName){
+    	
+    	//It is for the same table
+    	//deleting from indexes only, already has been deleted from table
+    	
+    	ArrayList<String> deserializedPagesNames=new ArrayList<>();
+		ArrayList<Object[]> deserializedPagesObj=new ArrayList<>();
+    	
+    	for(IndexInfo Index:Indexes) {
+    		String currentIndexName=Index.indexName;
+    		if(currentIndexName.equals(ignoreIndexName))
+    			continue;
+    		Vector<Integer> colNum=Index.colNum; //postition of columns index is built on
+    		Vector<String> indexedCol=Index.indexedCol;
+    		Vector<Object> indexColValues=new Vector<>();
+    		Object[][] minmax=Index.minmax;
+    		
+    		String pathOfGrid =pathOfFile+str_TableName+"/"+currentIndexName;
+			String gridFileName=new File(pathOfGrid).listFiles()[0].getName(); //because we do not store the .class file name of the DDVector
+			pathOfGrid=pathOfGrid+"/"+gridFileName+".class";
+			
+			DDVector Grid=(DDVector)deserialize(pathOfGrid);
+    		
+		
+			
+			
+			
+    		for(Tuple tuple: tuplesToDelete) {
+    			Object bucketCell=Grid;
+    			Vector<Object> tupleRecords=tuple.record;
+    			
+    			for(int i=0;i<colNum.size();i++) {
+        			indexColValues.add(tupleRecords.get(colNum.get(i)));} 
+    			
+    			List<Integer> bucketCellPosition=new ArrayList<Integer>();
+    			
+    			for (int i=0;i<indexColValues.size();i++) {
+    				int min=(Integer)minmax[i][0];
+    				int max=(Integer)minmax[i][1];
+    				String type=(String)minmax[i][2];
+    				
+    				//narrowing down till the last cell
+    				int position=findDiv(min, max, type, indexColValues.get(i));
+    				bucketCellPosition.add(position);
+    				bucketCell=((DDVector)bucketCell).array.get(position);
+    				
+    				}
+    			
+    			Vector<Object[]> vectorOfBuckets=(Vector)bucketCell;
+    			Vector<Object[]> vectorOfBucketsNew=new Vector<>();
+//    			for(Object[] bucketObj : vectorOfBuckets) {
+    			for(int i=0;i<vectorOfBuckets.size();i++) {
+//    				String bucketName=(String)bucketObj[0];
+    				String bucketName=(String)vectorOfBuckets.get(i)[0];
+					//deserialize the bucket itself
+					String pathOfBucket=pathOfFile+str_TableName+currentIndexName+"/"+bucketName+".class";
+					Bucket bucket=(Bucket)deserialize(pathOfBucket); 
+					
+					Vector<Object[]> vectorOftupleRef=bucket.tupleReferences;
+				    
+					tupleOuter:for(Object[] tupleRef : vectorOftupleRef) {
+				    	String pageName=(String) tupleRef[0]; //maybe its an Integer(due to the naming convention)?
+				    	int rowNumber=(Integer) tupleRef[1];
+				    	
+				    	//in order to not keep serializing and deserializing the same page
+				    	//in a short period of time
+				    	Page page=null;
+				    	
+				    	
+				    	if(!deserializedPagesNames.contains(pageName)) {
+				    		//serialize the page
+				    		String pathOfPage=pathOfFile+str_TableName+"/"+pageName+".class";
+				    		page=(Page)deserialize(pathOfPage);
+				    		//cache the deserialized page info
+				    		deserializedPagesObj.add(new Object[]{pathOfPage,page});
+				    		deserializedPagesNames.add(pageName);
+				    		
+				    		
+				    	
+				    	}
+				    	else {
+				    		//use already deserialized page
+				    		for(Object[] deserializedPage: deserializedPagesObj) {
+				    			String pathOfPage=(String)deserializedPage[0];
+								if(pathOfPage.endsWith(pageName+".class"))
+									page=(Page)deserializedPage[1];
+									break;
+							}
+				    		
+				    	}
+				    
+				    	Tuple tupleInBucket=page.tuples.get(rowNumber);
+			    		Vector<Object> tupleRecord=tupleInBucket.record;
+			    		
+			    		for(int j=0;i<page.tuples.size();j++) {
+				    		if(tupleRecord.get(clusterKeyIndex).equals(tuple.record.get(clusterKeyIndex))) {
+				    			page.tuples.remove(j);
+				    			//GRid has to be updated as well
+				    			continue tupleOuter;}
+				    		
+				    	}
+    		
+			    		
+			    		
+    		
+    	}}}}
+    	
+    	//serialize all pages and grids at the end
+		//------
+    	for(Object[] deserializedPage: deserializedPagesObj) {
+			String pathOfPage=(String)deserializedPage[0];
+			Page page=(Page)deserializedPage[1];
+			serialize(page,pathOfPage);
+		}
+    	
+    }
+    
+    
+    
+    
+    
     public void deleteFromTable(String str_TableName,
     		Hashtable<String,Object> htbl_ColNameValue)
     		throws DBAppException
@@ -743,10 +978,11 @@ public class DBApp implements DBAppInterface{
 		String[] columnName=new String[htbl_ColNameValue.size()];
 		Enumeration<String> enumeration = htbl_ColNameValue.keys();
 		Object[] values=new Object[htbl_ColNameValue.size()];
+		
+		//get values from the Hashtable
 		for(int i=0;i<htbl_ColNameValue.size();i++) {
 			columnName[i]=enumeration.nextElement();
 			values[i]=htbl_ColNameValue.get(columnName[i]);
-		//	System.out.println("value:"+values[i]);
 		}
 		for(int i=0;i<columnName.length;i++) {
 			if(!(tableInfo.colOrder.contains(columnName[i])))
@@ -758,6 +994,203 @@ public class DBApp implements DBAppInterface{
 			hash.put(columnName[i], values[i]);
 		}
 		checkValidity(str_TableName,hash);
+		
+		
+		IndexInfo bestIndex=getBestIndex(); //returns null if no good index exists (partial or full)
+		
+		if(bestIndex!=null) {
+			
+			String indexName=bestIndex.indexName;
+			Vector<String> indexedCol=bestIndex.indexedCol;
+		
+			Path pathOfGrid =Paths.get(pathOfFile+str_TableName+"/"+indexName);
+			String str_pathOfGrid=pathOfGrid.toString();
+			String gridFileName=new File(str_pathOfGrid).listFiles()[0].getName(); //because we do not store the .class file name of the DDVector
+			str_pathOfGrid=str_pathOfGrid+"/"+gridFileName+".class";
+			
+			DDVector Grid=(DDVector)deserialize(str_pathOfGrid);
+			
+			List<String> queryColumns = new ArrayList<>(Arrays.asList(columnName));
+			
+//			columnName; //name of columns in query
+//			values; //their values
+			
+			List<Integer> coordinates=new ArrayList<>();
+			
+			//determine which grid cells I will use
+			//indexedCol is Vector of positions of columns index is built on
+			for (int i=0;i<indexedCol.size();i++) {
+				boolean b=queryColumns.contains(indexedCol.get(i));
+				if(b)
+					coordinates.add(i);
+				else
+					coordinates.add(-1); //meaning it is a partial query all 10 intervals have to be scanned
+					}
+			
+			
+//			class Local{
+//				public void deleteTuples(int size,ArrayList<Integer> listOfcoordinatesOfTheSpecificBucket) {
+//					if(size==0)
+//						return;
+//					else {
+//						//delete the tuples in the index , get the reference and delete in table and then all other indexes
+//						for(int i;i<;i++) {}
+//					}}}
+			
+			boolean partial=false;
+			if(coordinates.contains(-1))
+				partial=true;
+			
+				Object[][] minmax=bestIndex.minmax;
+				Vector<Integer> colNum=bestIndex.colNum;
+			
+			if(!partial) {
+				//delete the tuples in the cell directly
+				//it is going to be one cell only because it is a full query
+				// and because delete does not delete with ranges but only AND (arguments stored in a Hashtable)
+				Object bucketCell=Grid;
+				Vector<Tuple> tuplesToDelete=new Vector<>();
+				
+				for (int i=0;i<colNum.size();i++) {
+					int min=(Integer)minmax[i][0];
+					int max=(Integer)minmax[i][1];
+					String type=(String)minmax[i][2];
+					
+					//narrowing down till the last cell
+					int position=findDiv(min, max, type, indexedCol.get(i));
+					bucketCell=((DDVector)bucketCell).array.get(position);
+					
+					}
+					
+					if(!(bucketCell instanceof Vector))
+						return;//something is wrong if it returns
+					
+				
+//					String vectorOfBuckets=(String)bucketCell.get(0);
+					
+						Vector<Object[]> vectorOfBuckets=(Vector)bucketCell;
+						ArrayList<String> deserializedPagesNames=new ArrayList<>();
+						ArrayList<Object[]> deserializedPagesObj=new ArrayList<>();
+						
+						for(Object[] bucketObj : vectorOfBuckets) {
+							
+							//if((Boolean)bucketObj[1]) continue;//True means Bucket is Full so skip it 
+								
+							
+							String bucketName=(String)bucketObj[0];
+							//deserialize the bucket itself
+							String pathOfBucket=pathOfFile+str_TableName+indexName+"/"+bucketName+".class";
+							Bucket bucket=(Bucket)deserialize(pathOfBucket); //the one bu
+							
+							Vector<Object[]> vectorOftupleRef=bucket.tupleReferences;
+						    
+							tupleOuter:for(Object[] tupleRef : vectorOftupleRef) {
+						    	String pageName=(String) tupleRef[0]; //maybe its an Integer(due to the naming convention)?
+						    	int rowNumber=(Integer) tupleRef[1];
+						    	
+						    	//in order to not keep serializing and deserializing the same page
+						    	//in a short period of time
+						    	Page page=null;
+						    	
+						    	
+						    	if(!deserializedPagesNames.contains(pageName)) {
+						    		//serialize the page
+						    		String pathOfPage=pathOfFile+str_TableName+"/"+pageName+".class";
+						    		page=(Page)deserialize(pathOfPage);
+						    		//cache the deserialized page info
+						    		deserializedPagesObj.add(new Object[]{pathOfPage,page});
+						    		deserializedPagesNames.add(pageName);
+						    		
+						    		
+						    	
+						    	}
+						    	else {
+						    		//use already deserialized page
+						    		for(Object[] deserializedPage: deserializedPagesObj) {
+						    			String pathOfPage=(String)deserializedPage[0];
+										if(pathOfPage.endsWith(pageName+".class"))
+											page=(Page)deserializedPage[1];
+											break;
+									}
+						    		
+						    	}
+						    
+						    	Tuple tuple=page.tuples.get(rowNumber);
+					    		Vector<Object> tupleRecord=tuple.record;
+						    	//check if tuple is eligibile to be deleted
+						    	for(int i=0;i<colNum.size();i++) {
+						    		if(!tupleRecord.get(i).equals(indexedCol)) //it should work as colNum and indexedCol are in sync
+						    			continue tupleOuter;
+						    	}
+						    	//if this code space is reached, then the tuple should be deleted
+						    	
+						    	page.tuples.remove(rowNumber); //actually delete it from the table
+					    		tuplesToDelete.add(tuple);
+					    		
+					    		//HANDLE THIS LATER
+					    		// if it becomes empty notify tableinfo & alter it
+					    		if(page.tuples.size()==0) {
+					    			
+					    			//tableInfo.numOfPages--;
+									//Files.delete(Paths.get(pathOfPage));
+									//tableInfo.pages.remove(thePageItself); alter Page class to have its name/number
+					    		}
+					    		
+					    		
+					    		
+					    		
+//					    		removeFromIndexes(tuple,str_TableName,Indexes,indexName); //2nd argument denotes index not to consider (already removed Tuple from)
+					    		//methodToRemoveTuple from all other indexes on the table accordingly
+					    		
+					    		//Vector<Tuple> tuples
+					    		
+					    		//serialize it at the end
+					    		//serialize(vectorOfBuckets,pathOfPage);
+						    
+						    
+						    
+						    }
+						}
+						//here serialize all pages
+						for(Object[] deserializedPage: deserializedPagesObj) {
+							String pathOfPage=(String)deserializedPage[0];
+							Page page=(Page)deserializedPage[1];
+							serialize(page,pathOfPage);
+						}
+					
+					
+					Vector<IndexInfo> Indexes=tableInfo.indices;
+					
+					removeFromIndexes(tuplesToDelete,str_TableName,Indexes,tableInfo.clusterKeyIndex,indexName); //2nd argument denotes index not to consider (already removed Tuple from)
+//					vectorDeletedTuples.add(tuple);
+					
+					return;
+					
+					
+			
+			}
+			else {
+				//HANDLE PARTIAL QUERIES HERE
+				//consider them (look at their tuple references)
+				//because they might not satisfy the entire query 
+				return;
+			}
+			
+		}
+		
+
+//		hash //hashtable of both of them
+		
+		
+		/*------
+		
+		If there is no good index to do amplify finding the tuples,
+		proceed using linear scans, but after each successful deletion, 
+		 delete the tuple from every Index the table has
+		
+		//------*/
+		
+		
 		
 		for(int i=0;i<tableInfo.pages.size();i++) {
 			String pageName=(String)tableInfo.pages.get(i)[0];
@@ -934,86 +1367,181 @@ public class DBApp implements DBAppInterface{
 		return b;
 		
 	}
-   
+    public static Object[][] getMinMax(String str_TableName,Vector<String> vect_arrColName){
+
+    	BufferedReader objReader = null;
+    	String strCurrentLine="";
+    	//skip the first line
+    	try {
+    		objReader = new BufferedReader(new FileReader("src/main/resources/metadata.csv"));
+    		strCurrentLine = objReader.readLine();
+    	} catch (IOException e) {
+    		e.printStackTrace();
+    	}
+    	
+    	
+    	Object[][] returnList=new Object[vect_arrColName.size()][3];
+    	
+    	
+    	//actually start looking for column values
+    	try {
+    		
+    		String[] splitted=null;
+    		boolean bool=false;
+    		int i =0;
+    		for (i= 0; (strCurrentLine = objReader.readLine()) != null; i++) {
+    			splitted=strCurrentLine.split(",");
+    			if(splitted[0].equals(str_TableName)) {
+    				bool=true;
+    				break;}}
+    		
+    		
+    		for(int j =0;j<vect_arrColName.size();j++)
+    		{
+    				splitted=strCurrentLine.split(",");
+    				if(vect_arrColName.get(j).equals(splitted[1]))
+    				{
+    					Object min=splitted[5];
+    				    Object max=splitted[6];
+    				    returnList[j][2] = splitted[2].toLowerCase();
+    				   	returnList[j][0]=min; //min
+    				   	returnList[j][1]=max; //max
+    				   	strCurrentLine = objReader.readLine();
+    				   	splitted=strCurrentLine.split(",");
+    				   	break;
+    				}
+    				
+    		}
+    		for(int j =0;j<vect_arrColName.size();j++)
+    		{
+    			for(int k = i;(strCurrentLine = objReader.readLine()) != null;k++)
+    			{
+    				splitted=strCurrentLine.split(",");
+    				if(vect_arrColName.get(j).equals(splitted[1]))
+    				{
+    					Object min=splitted[5];
+    				    Object max=splitted[6];
+    				    returnList[j][2] = splitted[2].toLowerCase();
+    				   	returnList[j][0]=min; //min
+    				   	returnList[j][1]=max; //max
+    				   	strCurrentLine = objReader.readLine();
+    				   	splitted=strCurrentLine.split(",");
+    				   	break;
+    				}
+    				
+    			}
+    		}
+    		
+    		} catch (IOException e) {
+    		e.printStackTrace();
+    	}  
+    	
+    	return returnList;
+    	}
     public void createIndex(String
     		str_TableName,
     		String[] str_arrColName) throws DBAppException
     {
+    	
+    	//Create new index
     	int sizeGrid=str_arrColName.length+1;
     	DDVector index=new DDVector(sizeGrid);
     	
+    	//Init it's info
     	String indexName ="";
     	for(int i =0;i<str_arrColName.length;i++)
     		indexName+=str_arrColName[i];
     	
+    	IndexInfo indexinfo = new IndexInfo(indexName,str_arrColName);
     	
-    	
+    	//Create directory for this index
     	Path path =Paths.get(pathOfFile+str_TableName+"/"+indexName);
         try 
         {
             Files.createDirectories(path);
             
-         } catch (Exception e) {
+        } 
+        catch (Exception e) 
+        {
         	  throw new DBAppException("Already has index on these columns");
-         	}
-   
+        }
         
-        //get min and max of every column in input array from metadata
+        
+    	//get min and max of every col in input array from metadata
+    	Object[][] minmax=getMinMax(str_TableName, indexinfo.indexedCol);
     	
-//    	directory for index
+    	//convert Object[][] to Vector<Object[][]>
+//    	Vector<Object[][]> vectr_minmax=new Vector<Object[][]>();
+//    	for(int i=0;i<minmax.length;i++) {
+//    		vectr_minmax.add(minmax[i]);
+//    	}
     	
-    	TableInfo tableInfo=(TableInfo)deserialize("src/main/resources/data/"+str_TableName+"/tableInfo.class");
+    	indexinfo.minmax=minmax;
+    	
+    	//Get tableinfo of this table
     	String tablePath="src/main/resources/data/"+str_TableName+"/";
+    	TableInfo tableInfo=(TableInfo)deserialize("src/main/resources/data/Student/tableInfo.class");
+    	//Put the info of index in this tableInfo
     	
+    	
+//    	colNum holds position of each column that index is built on
     	int[] colNum = new int[str_arrColName.length]; 
-    	//get indexes of the array column
     	for(int i = 0;i<str_arrColName.length;i++)
     		colNum[i]=tableInfo.colOrder.indexOf(str_arrColName[i]);
     	
-    	Object[][] minmax=getMinMax(str_TableName, str_arrColName);
+    	//Hussein added this part for deleteFromTable (did not delete the above paragraph yet because below code depends on colNum being a String[])
+    	Vector<Integer> colNumVector = new Vector<>();
+    	for(int i = 0;i<str_arrColName.length;i++)
+    		colNumVector.add(tableInfo.colOrder.indexOf(str_arrColName[i]));
     	
+    	indexinfo.colNum=colNumVector;
+    	tableInfo.indices.add(indexinfo);
+    	
+    	//Cell holds the exact coordinate of cell of index we are going to insert in
     	int[] cell = new int[str_arrColName.length];
+    	
+    	
     	//for over each page, over each row/tuple
     	for (int i = 0; i < tableInfo.pages.size(); i++) 
     	{
-    		String s=tableInfo.pages.get(i)[0].toString();
+    		String s=(tableInfo.pages.get(i)[0].toString());
     		Page page=(Page)deserialize(tablePath+s+".class");
     		for (int j = 0; j < page.tuples.size(); j++) 
     		{
     			Tuple tuple= page.tuples.get(j);
     			//get each value from tuple of input columns
     			for(int k = 0;k<colNum.length;k++)
-    			{
-    				cell[k] = findDiv(minmax[k][0],minmax[k][1],tuple.record.get(k));
-    			}
+    				cell[k] = findDiv(minmax[k][0],minmax[k][1],minmax[k][2],tuple.record.get(colNum[k]));
+    			
+    			
     			Vector bucketInCell = index.getFromDimensions(cell);
     			if(bucketInCell.size()==0)
     			{
     				Bucket bucket = new Bucket();
     				Object[] tupleRef = new Object[2];
-    				tupleRef[0] = s; //page name in which tuple resides
-    				tupleRef[1] = j; //index of tuple in the page
+    				tupleRef[0] = s;
+    				tupleRef[1] = j;
     				bucket.insert(tupleRef);
-    				String pathOfFile = path+"/0.class";
+    				String pathOfFile = path+"/"+index.bucketNumber+".class";
     				serialize(bucket, pathOfFile);
     				Object[] bucketInfo = new Object[2];
-    				bucketInfo[0] = "0";
+    				bucketInfo[0] = index.bucketNumber+"";
     				bucketInfo[1] = false;
-    				index.insertAtDimensions(cell, bucketInfo); //index is the DDVector
+    				index.insertAtDimensions(cell, bucketInfo);
     			}
     			else
     			{
     				boolean noFoundBucket = true;
     				for(int k =0;k<bucketInCell.size();k++)
     				{
-    					Object[] bucketInfo = (Object[]) bucketInCell.get(k); //bucketInCell is a vector
-    					if(bucketInfo[1].equals(false)) // true as in full
+    					Object[] bucketInfo = (Object[]) bucketInCell.get(k);
+    					if(bucketInfo[1].equals(false))
     					{
-    						String pathOfBucket = path+"/"+bucketInfo[0].toString()+".class"; //typecasting needed?
+    						String pathOfBucket = path+"/"+bucketInfo[0]+".class";
     						Bucket bucket = (Bucket)deserialize(pathOfBucket);
-    						Object[] tupleRef = new Object[2]; 
-    						tupleRef[0] = s; //page name in which tuple resides
-    	    				tupleRef[1] = j; //index of tuple in the page
+    						Object[] tupleRef = new Object[2];
+    	    				tupleRef[0] = s;
+    	    				tupleRef[1] = j;
     	    				bucket.insert(tupleRef);
     	    				boolean isFull = bucket.isFull();
     	    				serialize(bucket, pathOfBucket);
@@ -1021,7 +1549,7 @@ public class DBApp implements DBAppInterface{
     	    				noFoundBucket = false;
     					}
     				}
-//    				if(noFoundBucket)
+    				if(noFoundBucket)
     				{
     					Bucket bucket = new Bucket();
         				Object[] tupleRef = new Object[2];
@@ -1031,78 +1559,18 @@ public class DBApp implements DBAppInterface{
         				String pathOfFile = path+"/" +index.bucketNumber+ ".class";
         				serialize(bucket, pathOfFile);
         				Object[] bucketInfo = new Object[2];
-        				bucketInfo[0] = index.bucketNumber;
+        				bucketInfo[0] = index.bucketNumber+"";
         				bucketInfo[1] = false;
         				index.insertAtDimensions(cell, bucketInfo);
     				}
     			}
     		}
+    		serialize(page, tablePath+s+".class");
     	}
-    	
-    
-    
-    
+    	//serialize index and tableInfo
+    	serialize(tableInfo, "src/main/resources/data/Student/tableInfo.class");
+    	serialize(index,path+"/index.class");
     }
-    
-    
-	public static Object[][] getMinMax(String str_TableName,Vector<String> vect_arrColName){
-
-	BufferedReader objReader = null;
-	String strCurrentLine="";
-	//skip the first line
-	try {
-		objReader = new BufferedReader(new FileReader("src/main/resources/metadata.csv"));
-		strCurrentLine = objReader.readLine();
-	} catch (IOException e) {
-		e.printStackTrace();
-	}
-	
-	
-	Object[][] returnList=new Object[vect_arrColName.size()][2];
-	
-	
-	//actually start looking for column values
-	try {
-		
-		String[] splitted=null;
-		boolean bool=false;
-		for (int i = 0; (strCurrentLine = objReader.readLine()) != null; i++) {
-			splitted=strCurrentLine.split(",");
-			if(splitted[0].equals(str_TableName)) {
-				bool=true;
-				break;}}
-		
-		int counter=vect_arrColName.size();
-		while(counter>0) {
-			for(int i=0;i<vect_arrColName.size();i++) {
-			   if(splitted[1].equals(vect_arrColName.get(i))) {    	
-				   	
-				    Object min=splitted[5];
-				    Object max=splitted[6];
-				   	returnList[i][0]=min; //min
-				   	returnList[i][1]=max; //max
-				   	strCurrentLine = objReader.readLine();
-				   	System.out.println(strCurrentLine);
-				   	splitted=strCurrentLine.split(",");
-			   		counter--;
-//			   		System.out.println();
-//			   		System.out.println("Column name is:"+vect_arrColName.get(i));
-//			   		System.out.println("minimum is:"+min.toString());
-//				   	System.out.println("maximum is:"+max.toString());
-//				   	System.out.println();
-				   	break;
-			   }
-				
-				}
-			}
-		
-		} catch (IOException e) {
-		e.printStackTrace();
-	}  
-	
-	return returnList;
-	}
-    
     public Iterator selectFromTable(SQLTerm[] arr_SQLTerms,
     		String[] str_arrOperators)
     		throws DBAppException{
@@ -1115,44 +1583,47 @@ public class DBApp implements DBAppInterface{
     	Hashtable<Integer,String> ht=new Hashtable<Integer,String>(); 
     	return (Iterator)ht;	
     }
-    public int findDivNum(String m, String max, String val)
+    public static int findDiv(Object min, Object max, Object type,Object val)
     {
-    	char min = m.charAt(0);
-		int nOfComb=0;
-		for(int i=((int)min)-96;i<=max.length();i++) {
-			int k=(int)Math.pow(26, i);
-			nOfComb+=k;
-		}
-		int divisions=nOfComb/10;
+    
+		if(type.toString().equals("java.util.date"))
+			return 0;
+		else if (type.toString().equals("java.lang.double"))
+			return findDivNum(Double.parseDouble(min.toString()),Double.parseDouble(max.toString()),Double.parseDouble(val.toString()));
+		else if (type.toString().equals("java.lang.integer"))
+			return findDivNum(Integer.parseInt(min.toString()),Integer.parseInt(max.toString()),Integer.parseInt(val.toString()));
+		else //string
+			return findDivNum(min.toString(),max.toString(),val.toString());
+    }
+    public static int position(String val) {
 		int combBefore=0;
-		for(int i=((int)min)-96;i<val.length();i++) {
+		for(int i=1;i<val.length();i++)
 			combBefore+=(int)Math.pow(26, i);
-		}
 		for(int i=0;i<val.length();i++) {
-			if((int)(val.charAt(i))-97==0)
+			if(val.charAt(i)=='a')
 				continue;
-			int a=(val.charAt(i)-97)*(int)Math.pow(26, val.length()-i-1);
-			combBefore+=a;
+			combBefore+=(val.charAt(i)-97)*(int)Math.pow(26, val.length()-i-1);
 		}
-		combBefore++;
-		int a=(int)Math.ceil(combBefore*1.0/divisions);
-		if(a==11)
-			a=10;
-		return a;
-    }
-    public int findDiv(Object min, Object max, Object val)
+		return ++combBefore;
+	}
+	public static int findDivNum(int min, int max, int val)
     {
-		return 0;
+    	int range=max-min+1;
+    	int divisionSize=range/10;
+    	int nthComb=val-min+1;
+    	int division=(int)Math.ceil(nthComb*1.0/divisionSize);
+		if(division==11)
+			division--;
+		return division==11?10:division;
     }
-    public int findDivNum(int min, int max, int val)
+	public static int findDivNum(double min, double max, double val)
     {
-    	return 1;
+    	return findDivNum((int)min, (int)max, (int)val);
     }
-    public int findDivNum(double min, double max, double val)
-    {
-    	return 1;
-    }
-    public int findDivNum(Date min, Date max, Date val)
+	public static int findDivNum(String min, String max, String val) {
+		return findDivNum(position(min),position(max),position(val));
+	}
+    public static int findDivNum(Date min, Date max, Date val)
     {
     	return 1;
     }
@@ -1177,7 +1648,7 @@ public class DBApp implements DBAppInterface{
     	htblColNameMax.put("gpa", "4");
     	
     	dbApp.createTable( strTableName, "id", htblColNameType,htblColNameMin,htblColNameMax);
-    
+    	
     	TableInfo StudentTableInfo=(TableInfo)dbApp.deserialize("src/main/resources/data/Student/tableInfo.class");
     	//INSERTION INTO TABLES
     	Hashtable htbl_values = new Hashtable( );
@@ -1241,23 +1712,23 @@ public class DBApp implements DBAppInterface{
     	delete.put("name","DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD");
     	   	
     	
-    	dbApp.deleteFromTable("Student",delete);
     	
     	
+    	dbApp.createIndex( strTableName, new String[] {"id"} ); 
     	StudentTableInfo1=(TableInfo)dbApp.deserialize("src/main/resources/data/Student/tableInfo.class");
     	//Print all pages with their contents
-    	
-    	for (int i = 0; i < StudentTableInfo1.pages.size(); i++) {
-    		String s=(StudentTableInfo1.pages.get(i)[0].toString());
-    		System.out.println("Tuples in "+s+":"+"  MAX VALUE IS "+(StudentTableInfo1.pages.get(i)[1]));
-    		Page page=(Page)deserialize(studentPath+s+".class");
-    		for (int j = 0; j < page.tuples.size(); j++) 
+    	DDVector index = (DDVector)dbApp.deserialize("src/main/resources/data/Student/id/index.class");
+    	for (int i = 0; i < index.bucketNumber; i++) {
+    		String s=i+"";
+    		System.out.println("Tuples in "+s+":"+"  MAX VALUE IS ");
+    		Bucket bucket=(Bucket)deserialize("src/main/resources/data/Student/id/"+s+".class");
+    		for (int j = 0; j < bucket.tupleReferences.size(); j++) 
     		{
-    			System.out.println("khaled");
-    			System.out.println("tuple"+j+": "+page.tuples.get(j).record.toString());
+    			System.out.println("tuple"+j+": "+bucket.tupleReferences.get(j)[0].toString()+", "+ bucket.tupleReferences.get(j)[1].toString());
     		}
     		System.out.println();
     	}
+    	
     	
     	}
     

@@ -1,10 +1,12 @@
+import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Vector;
 
-public class DDVector
+public class DDVector implements Serializable
 {
 	Vector<Object> array;
 	int dim;
-	static int bucketNumber = 0;
+	int bucketNumber = 0;
 	public DDVector(int dimensions)
 	{
 		int size = 10;
@@ -52,10 +54,10 @@ public class DDVector
 		DDVector level = this;
 		//check if size of array = dimen
 		int dimension = this.dim;
-		for(int i=0;i<dimension-1;i++)
-			level = (DDVector) level.array.get(i);
+		for(int i=0;i<locations.length;i++)
+			level = (DDVector) level.array.get(locations[i]);
 		
-		level.array.add(value); //why not this.array.add(value)??
+		level.array.add(value);
 		bucketNumber++;
 		//level.array.insertElementAt(value, 0);
 	}
@@ -68,24 +70,21 @@ public class DDVector
 		DDVector level = this;
 		//check if size of array = dimen
 		int dimension = this.dim;
-		for(int i=0;i<dimension-1;i++)
-			level = (DDVector) level.array.get(i);  //what does this do?
+		for(int i=0;i<locations.length;i++)
+			level = (DDVector) level.array.get(locations[i]);
 		
 		return level.array;
 	}
 	
-	
-	
-	
-	
 	public static void main(String[] args) 
 	{
-		DDVector x = new DDVector(3);
-		int [] y= {0,1};
+		DDVector x = new DDVector(2);
+		int [] y= {5};
 		Object[] b1 = {"bucket1",false};
 		Object[] b2 = {"bucket2",true};
 		x.insertAtDimensions(y, b1);
 		x.insertAtDimensions(y, b2);
+		System.out.println(x.toString());
 		Vector c = x.getFromDimensions(y);
 	}
 
